@@ -1,40 +1,57 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../api/client";
 
 export default function SuccessPage() {
   const [params] = useSearchParams();
   const bookingId = params.get("bookingId");
-  const [estado, setEstado] = useState("PENDIENTE_PAGO");
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
-    if (!bookingId) return;
-    let intentos = 0;
-    const t = setInterval(async () => {
-      intentos++;
-      try {
-        const b = await api(`/bookings/${bookingId}`);
-        setEstado(b.estado);
-        if (b.estado === "CONFIRMADA" || intentos >= 10) clearInterval(t);
-      } catch {
-        if (intentos >= 10) clearInterval(t);
-      }
-    }, 3000);
-    return () => clearInterval(t);
-  }, [bookingId]);
+    // Simula polling de confirmación
+    const t = setTimeout(() => setConfirmed(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <div className="card center">
-      <h1>🎉 ¡Listo!</h1>
-      {estado === "CONFIRMADA" ? (
-        <>
-          <p>Tu reserva quedó <strong>confirmada</strong>.</p>
-          <p className="muted">El saldo restante se abona en el mostrador del complejo.</p>
-        </>
-      ) : (
-        <p>Estamos confirmando el pago… Estado actual: {estado}</p>
-      )}
-      <Link className="btn btn--primary" to="/mis-reservas">Ver mis reservas</Link>
+    <div className="page-enter" style={{ maxWidth: 480, margin: "0 auto" }}>
+      <div className="card center">
+        <div style={{ fontSize: "4rem", marginBottom: "var(--space-md)" }}>
+          {confirmed ? "🎉" : "⏳"}
+        </div>
+        <h1>
+          {confirmed ? "¡Reserva confirmada!" : "Confirmando pago…"}
+        </h1>
+        {confirmed ? (
+          <>
+            <p style={{ marginTop: "var(--space-sm)", color: "var(--text-secondary)" }}>
+              Tu turno quedó <strong style={{ color: "var(--accent)" }}>confirmado</strong>.
+            </p>
+            <div className="resumen" style={{ margin: "var(--space-md) 0", textAlign: "left" }}>
+              <p>📌 El saldo restante se abona en el mostrador del complejo.</p>
+              <p>📱 Podés ver los detalles en <strong>Mis reservas</strong>.</p>
+            </div>
+            <Link className="btn btn--primary w-full" to="/mis-reservas">
+              Ver mis reservas
+            </Link>
+            <Link
+              className="btn btn--outline w-full mt-sm"
+              to="/"
+              style={{ marginTop: "var(--space-sm)" }}
+            >
+              Volver al inicio
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="muted" style={{ marginTop: "var(--space-sm)" }}>
+              Estamos verificando tu pago con Mercado Pago…
+            </p>
+            <div style={{ marginTop: "var(--space-md)" }}>
+              <div className="skeleton skeleton--text" style={{ width: "60%", margin: "0 auto" }} />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

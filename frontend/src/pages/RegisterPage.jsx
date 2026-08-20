@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, saveSession } from "../api/client";
+import { saveSession } from "../api/client";
+import { mockRegister } from "../api/mockData";
+import { useToast } from "../components/Toast";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   function set(field) {
     return (e) => setForm({ ...form, [field]: e.target.value });
@@ -14,27 +18,50 @@ export default function RegisterPage() {
   async function submit(e) {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
-      const data = await api("/auth/register", { method: "POST", auth: false, body: form });
+      const data = await mockRegister(form);
       saveSession(data);
-      navigate("/");
+      toast?.success(`¡Cuenta creada! Bienvenido, ${data.fullName}`);
+      window.location.href = "/";
     } catch (err) {
       setError(err.status === 409 ? "Ese email ya está registrado" : "Error: " + err.message);
+      setLoading(false);
     }
   }
 
   return (
-    <div className="card">
-      <h1>Crear cuenta</h1>
-      <form onSubmit={submit} className="form">
-        <label>Nombre completo<input value={form.fullName} onChange={set("fullName")} required /></label>
-        <label>Email<input type="email" value={form.email} onChange={set("email")} required /></label>
-        <label>Teléfono<input value={form.phone} onChange={set("phone")} required /></label>
-        <label>Contraseña (mínimo 8)<input type="password" minLength={8} value={form.password} onChange={set("password")} required /></label>
-        {error && <p className="msg msg--error">{error}</p>}
-        <button className="btn btn--primary" type="submit">Registrarme</button>
-      </form>
-      <p className="muted">Ya tenés cuenta? <Link to="/login">Ingresá</Link></p>
+    <div className="page-enter" style={{ maxWidth: 420, margin: "0 auto" }}>
+      <div className="card">
+        <h1 style={{ textAlign: "center", marginBottom: "var(--space-lg)" }}>
+          Crear cuenta
+        </h1>
+        <form onSubmit={submit} className="form">
+          <label>
+            Nombre completo
+            <input value={form.fullName} onChange={set("fullName")} placeholder="Tu nombre" required autoFocus />
+          </label>
+          <label>
+            Email
+            <input type="email" value={form.email} onChange={set("email")} placeholder="tu@email.com" required />
+          </label>
+          <label>
+            Teléfono
+            <input value={form.phone} onChange={set("phone")} placeholder="Ej: 11-2345-6789" required />
+          </label>
+          <label>
+            Contraseña (mínimo 8)
+            <input type="password" minLength={8} value={form.password} onChange={set("password")} placeholder="Mínimo 8 caracteres" required />
+          </label>
+          {error && <p className="msg msg--error">⚠️ {error}</p>}
+          <button className="btn btn--primary w-full" type="submit" disabled={loading}>
+            {loading ? "Creando cuenta…" : "Registrarme"}
+          </button>
+        </form>
+        <p className="muted text-center" style={{ marginTop: "var(--space-md)" }}>
+          ¿Ya tenés cuenta? <Link to="/login">Ingresá</Link>
+        </p>
+      </div>
     </div>
   );
 }
