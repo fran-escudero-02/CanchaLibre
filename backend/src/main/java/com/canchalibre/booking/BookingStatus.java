@@ -1,0 +1,3 @@
+package com.canchalibre.booking;
+
+public enum BookingStatus { PENDIENTE_PAGO, CONFIRMADA, CANCELADA_REEMBOLSADA, CANCELADA_RETENIDA, EXPIRADA, COMPLETADA }

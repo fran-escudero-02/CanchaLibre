@@ -1,0 +1,16 @@
+# Node / Frontend
+node_modules/
+dist/
+.env
+
+# Java / Maven
+target/
+*.jar
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs y SO
+.idea/
+*.iml
+.vscode/
+.DS_Store

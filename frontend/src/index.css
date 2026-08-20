@@ -1,0 +1,54 @@
+* { box-sizing: border-box; }
+:root { --verde: #16a34a; --fondo: #f4f5f7; --borde: #e5e7eb; --texto: #111827; --muted: #6b7280; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--fondo); color: var(--texto); }
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; background: var(--verde); color: #fff; }
+.header__logo { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.1rem; }
+.header__nav { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.header__nav a { color: #fff; text-decoration: none; font-size: 0.9rem; }
+.main { flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 16px; }
+.card { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.card--link { display: block; color: inherit; text-decoration: none; }
+.card.center { text-align: center; }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.1rem; margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.form { display: flex; flex-direction: column; gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.form input { padding: 10px; border: 1px solid var(--borde); border-radius: 8px; font-size: 1rem; }
+.btn { border: none; border-radius: 8px; padding: 12px; font-size: 1rem; cursor: pointer; background: #e5e7eb; color: var(--texto); text-decoration: none; display: inline-block; text-align: center; }
+.btn--primary { background: var(--verde); color: #fff; }
+.btn--danger { background: #dc2626; color: #fff; }
+.btn--ghost { background: rgba(255,255,255,0.2); color: #fff; padding: 6px 12px; }
+.btn--small { padding: 6px 10px; font-size: 0.8rem; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.msg { padding: 10px; border-radius: 8px; font-size: 0.9rem; }
+.msg--error { background: #fee2e2; color: #991b1b; }
+.msg--ok { background: #dcfce7; color: #166534; }
+.fecha { display: block; margin: 12px 0; font-size: 0.95rem; }
+.fecha input { padding: 8px; border: 1px solid var(--borde); border-radius: 8px; }
+.cards { display: grid; gap: 12px; }
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.slot { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 10px; border: 1px solid var(--borde); background: #fff; cursor: pointer; font-size: 0.85rem; }
+.slot small { font-size: 0.65rem; }
+.slot--disponible { background: #dcfce7; border-color: #86efac; }
+.slot--proceso { background: #fef9c3; border-color: #fde047; }
+.slot--ocupado, .slot--bloqueado { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.timer { font-size: 1.3rem; text-align: center; margin: 12px 0; }
+.resumen { background: #f9fafb; border-radius: 8px; padding: 12px; }
+.resumen p { margin: 4px 0; }
+.estado { font-size: 0.8rem; font-weight: 600; }
+.estado--CONFIRMADA, .estado--CONFIRMADO { color: #166534; }
+.estado--PENDIENTE_PAGO, .estado--EN_PROCESO_PAGO { color: #854d0e; }
+.estado--BLOQUEADO, .estado--EXPIRADA, .estado--CANCELADA_RETENIDA, .estado--CANCELADA_REEMBOLSADA { color: #9ca3af; }
+.tabla-wrap { overflow-x: auto; }
+.tabla { border-collapse: collapse; font-size: 0.85rem; min-width: 640px; width: 100%; }
+.tabla th, .tabla td { border-bottom: 1px solid var(--borde); padding: 8px 6px; text-align: left; }
+.acciones, .manual { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.manual input { padding: 6px; border: 1px solid var(--borde); border-radius: 6px; width: 110px; }
+@media (min-width: 768px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+  .slots { grid-template-columns: repeat(6, 1fr); }
+  h1 { font-size: 1.6rem; }
+}
+@media (min-width: 1200px) { .cards { grid-template-columns: repeat(3, 1fr); } }

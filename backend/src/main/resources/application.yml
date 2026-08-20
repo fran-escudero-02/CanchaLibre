@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: canchalibre
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:canchalibre}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:canchalibre}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: 8080
+
+app:
+  timezone: ${APP_TIMEZONE:America/Argentina/Buenos_Aires}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  slot:
+    lock-minutes: ${SLOT_LOCK_MINUTES:15}
+    release-rate-ms: ${SLOT_RELEASE_RATE_MS:60000}
+  cancellation:
+    refund-window-hours: ${REFUND_WINDOW_HOURS:2}
+  mp:
+    simulation: ${MP_SIMULATION:true}
+  jwt:
+    secret: ${JWT_SECRET:canchalibre-secret-key-para-desarrollo-local-minimo-256-bits}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:720}
+
+mercadopago:
+  access-token: ${MP_ACCESS_TOKEN:}
