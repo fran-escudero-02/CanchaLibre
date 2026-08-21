@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { LOCK_TTL_SECONDS } from "../api/constants";
 
 /**
  * CountdownTimer – Timer circular animado para el Anti-Collision Lock.
- * TTL = 15 min (900s) según HU-08.
+ * TTL sincronizado con el backend (SLOT_LOCK_MINUTES = 5 min).
  *
  * @param {string} expiresAt - ISO timestamp de expiración
  * @param {function} onExpired - Callback cuando el timer llega a 0
@@ -26,7 +27,7 @@ export default function CountdownTimer({ expiresAt, onExpired }) {
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  const totalSeconds = 15 * 60; // 900s TTL
+  const totalSeconds = LOCK_TTL_SECONDS;
   const pct = Math.max(0, remaining / totalSeconds);
   const circumference = 2 * Math.PI * 52;
   const offset = circumference * (1 - pct);

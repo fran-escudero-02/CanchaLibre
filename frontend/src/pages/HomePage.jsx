@@ -1,19 +1,11 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { mockGetComplexes, DEPORTES } from "../api/mockData";
+import { getComplexes } from "../api/client";
+import { useApi } from "../hooks/useApi";
 
 export default function HomePage() {
-  const [complexes, setComplexes] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    mockGetComplexes()
-      .then((data) => {
-        setComplexes(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const { data, loading, error } = useApi(() => getComplexes(), []);
+  // El backend devuelve Page<ComplexResponse>: la lista vive en .content
+  const complexes = data?.content ?? [];
 
   return (
     <div className="page-enter">
@@ -33,7 +25,11 @@ export default function HomePage() {
         <h2>Complejos deportivos</h2>
       </div>
 
-      {loading ? (
+      {error ? (
+        <p className="msg msg--error" role="alert">
+          ⚠️ No se pudieron cargar los complejos: {error}
+        </p>
+      ) : loading ? (
         <div className="cards">
           {[1, 2, 3].map((i) => (
             <div key={i} className="card">
@@ -53,9 +49,9 @@ export default function HomePage() {
         <div className="cards">
           {complexes.map((c) => (
             <Link to={`/complejo/${c.id}`} className="card card--link" key={c.id}>
-              <h2 style={{ marginBottom: "var(--space-xs)" }}>{c.name}</h2>
+              <h3 className="complex-card__title">{c.name}</h3>
               <p className="muted" style={{ marginBottom: 0 }}>
-                📍 {c.address}
+                📍 {c.address || "Sin dirección cargada"}
               </p>
               <div className="complex-card__footer">
                 <span>🕒 {c.openTime} a {c.closeTime}</span>

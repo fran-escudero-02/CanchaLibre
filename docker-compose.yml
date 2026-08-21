@@ -17,10 +17,14 @@ services:
     environment:
       DB_HOST: db
       DB_PASSWORD: canchalibre
-      JWT_SECRET: cambia-esta-clave-en-produccion-minimo-256-bits-de-longitud
+      # Obligatorio: sin JWT_SECRET el backend no arranca (fail-fast).
+      # Valor solo para desarrollo local; generá el tuyo con:
+      #   python -c "import secrets; print(secrets.token_urlsafe(48))"
+      JWT_SECRET: _4YwEYtb_EdC8hvaxtKz_Kh0cjyd0ICJFSUOvHGQXHoxS59zxZmvAVnKtN6x16vq
       FRONTEND_URL: http://localhost:5173
       MP_SIMULATION: "true"
       MP_ACCESS_TOKEN: ""
+      SLOT_LOCK_MINUTES: "5"
     depends_on:
       db:
         condition: service_healthy

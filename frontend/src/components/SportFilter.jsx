@@ -1,4 +1,4 @@
-import { DEPORTES } from "../api/mockData";
+import { DEPORTES } from "../api/constants";
 
 /**
  * SportFilter – Chips de filtro por deporte.

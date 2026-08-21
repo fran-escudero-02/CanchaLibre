@@ -1,4 +1,5 @@
-import { ESTADO_SLOT, DEPORTES } from "../api/mockData";
+import { ESTADO_SLOT, DEPORTES } from "../api/constants";
+import { calcularSena, formatMoney } from "../utils/format";
 
 /**
  * SlotGrid – Grilla interactiva de disponibilidad.
@@ -56,9 +57,9 @@ function CourtSection({ cancha, onSlotClick }) {
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div className="court-header__price">${cancha.precio?.toLocaleString("es-AR")}</div>
+          <div className="court-header__price">${formatMoney(cancha.precio)}</div>
           <div className="muted" style={{ fontSize: "0.72rem" }}>
-            Seña {cancha.porcentajeSena}% · ${Math.round(cancha.precio * cancha.porcentajeSena / 100).toLocaleString("es-AR")}
+            Seña {cancha.porcentajeSena}% · ${formatMoney(calcularSena(cancha))}
           </div>
         </div>
       </div>

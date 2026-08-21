@@ -1,13 +1,18 @@
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from "react";
 
 const ToastContext = createContext(null);
 
 export function useToast() {
-  return useContext(ToastContext);
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    throw new Error("useToast debe usarse dentro de <ToastProvider>");
+  }
+  return ctx;
 }
 
 /**
- * ToastProvider – Wrap your app to enable toast notifications.
+ * ToastProvider – notificaciones toast para toda la app.
+ * El objeto toast es estable (useMemo) para no re-renderizar consumidores.
  */
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -20,16 +25,16 @@ export function ToastProvider({ children }) {
     }, duration);
   }, []);
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (msg) => addToast(msg, "success"),
     error: (msg) => addToast(msg, "error"),
     info: (msg) => addToast(msg, "info"),
-  };
+  }), [addToast]);
 
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="toast-container">
+      <div className="toast-container" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast--${t.type}`}>
             <span>{t.type === "success" ? "✅" : t.type === "error" ? "❌" : "ℹ️"}</span>

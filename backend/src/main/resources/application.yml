@@ -7,8 +7,15 @@ spring:
     password: ${DB_PASSWORD:canchalibre}
   jpa:
     hibernate:
-      ddl-auto: update
+      # El esquema lo gestiona Flyway; Hibernate solo valida que las entidades matcheen.
+      ddl-auto: validate
     open-in-view: false
+  flyway:
+    enabled: true
+    # Permite adoptar Flyway sobre una base existente creada antes de las migraciones:
+    # marca el baseline en V1 y aplica las siguientes.
+    baseline-on-migrate: true
+    baseline-version: 1
 
 server:
   port: 8080
@@ -17,14 +24,15 @@ app:
   timezone: ${APP_TIMEZONE:America/Argentina/Buenos_Aires}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   slot:
-    lock-minutes: ${SLOT_LOCK_MINUTES:15}
+    lock-minutes: ${SLOT_LOCK_MINUTES:5}
     release-rate-ms: ${SLOT_RELEASE_RATE_MS:60000}
   cancellation:
     refund-window-hours: ${REFUND_WINDOW_HOURS:2}
   mp:
     simulation: ${MP_SIMULATION:true}
   jwt:
-    secret: ${JWT_SECRET:canchalibre-secret-key-para-desarrollo-local-minimo-256-bits}
+    # Sin default: si no se define JWT_SECRET la aplicacion no arranca (fail-fast).
+    secret: ${JWT_SECRET}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:720}
 
 mercadopago:

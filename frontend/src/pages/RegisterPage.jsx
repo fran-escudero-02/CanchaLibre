@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { saveSession } from "../api/client";
-import { mockRegister } from "../api/mockData";
+import { register } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 
 export default function RegisterPage() {
@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const auth = useAuth();
 
   function set(field) {
     return (e) => setForm({ ...form, [field]: e.target.value });
@@ -20,10 +21,10 @@ export default function RegisterPage() {
     setError("");
     setLoading(true);
     try {
-      const data = await mockRegister(form);
-      saveSession(data);
-      toast?.success(`¡Cuenta creada! Bienvenido, ${data.fullName}`);
-      window.location.href = "/";
+      const data = await register(form);
+      auth.login(data);
+      toast.success(`¡Cuenta creada! Bienvenido, ${data.fullName}`);
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err.status === 409 ? "Ese email ya está registrado" : "Error: " + err.message);
       setLoading(false);

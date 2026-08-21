@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { mockGetBooking, mockCheckout } from "../api/mockData";
+import { checkout, getBooking } from "../api/client";
 import CountdownTimer from "../components/CountdownTimer";
 import { useToast } from "../components/Toast";
+import { formatMoney } from "../utils/format";
 
 export default function CheckoutPage() {
   const { bookingId } = useParams();
@@ -15,35 +16,43 @@ export default function CheckoutPage() {
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
-    if (!booking) {
-      mockGetBooking(bookingId)
-        .then(setBooking)
-        .catch(() => {
-          toast?.error("No se encontró la reserva");
-          navigate("/");
-        });
-    }
-  }, [bookingId]);
+    if (booking) return;
+    let alive = true;
+    getBooking(bookingId)
+      .then((data) => {
+        if (alive) setBooking(data);
+      })
+      .catch(() => {
+        if (!alive) return;
+        toast.error("No se encontró la reserva");
+        navigate("/");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bookingId, booking, navigate, toast]);
 
   function handleExpired() {
     setExpired(true);
     setError("El tiempo de retención expiró. El turno vuelve a estar disponible.");
-    toast?.error("⏰ Tiempo expirado. El turno fue liberado.");
+    toast.error("⏰ Tiempo expirado. El turno fue liberado.");
   }
 
   async function pagar() {
     setPagando(true);
     setError("");
     try {
-      const res = await mockCheckout(Number(bookingId));
-      toast?.success("Redirigiendo a Mercado Pago…");
-      // Simula redirección (en prod sería window.location.href = res.initPoint)
-      setTimeout(() => {
+      const res = await checkout(Number(bookingId));
+      if (res.simulacion) {
+        toast.success("Seña confirmada (modo simulación)");
         navigate(`/reserva/exito?bookingId=${bookingId}`);
-      }, 800);
+      } else {
+        toast.success("Redirigiendo a Mercado Pago…");
+        window.location.href = res.initPoint;
+      }
     } catch (e) {
       setError(e.message);
-      toast?.error(e.message);
+      toast.error(e.message);
       setPagando(false);
     }
   }
@@ -60,6 +69,8 @@ export default function CheckoutPage() {
       </div>
     );
   }
+
+  const expirado = expired || booking.estado === "EXPIRADA";
 
   return (
     <div className="page-enter" style={{ maxWidth: 500, margin: "0 auto" }}>
@@ -93,12 +104,12 @@ export default function CheckoutPage() {
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-xs)" }}>
             <span>Seña online</span>
             <strong style={{ color: "var(--accent)", fontSize: "1.1rem" }}>
-              ${booking.sena?.toLocaleString("es-AR")}
+              ${formatMoney(booking.sena)}
             </strong>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span className="muted">Saldo en mostrador</span>
-            <span className="muted">${booking.saldoMostrador?.toLocaleString("es-AR")}</span>
+            <span className="muted">${formatMoney(booking.saldoMostrador)}</span>
           </div>
           <div style={{
             borderTop: "1px solid var(--border-color)",
@@ -109,7 +120,7 @@ export default function CheckoutPage() {
             fontWeight: 700,
           }}>
             <span>Total</span>
-            <span>${((booking.sena || 0) + (booking.saldoMostrador || 0)).toLocaleString("es-AR")}</span>
+            <span>${formatMoney((booking.sena || 0) + (booking.saldoMostrador || 0))}</span>
           </div>
         </div>
 
@@ -130,13 +141,13 @@ export default function CheckoutPage() {
         <button
           className="btn btn--primary w-full"
           onClick={pagar}
-          disabled={pagando || expired}
+          disabled={pagando || expirado}
           style={{ padding: "14px 24px", fontSize: "1rem" }}
         >
-          {pagando ? "⏳ Redirigiendo a Mercado Pago…" : "💳 Pagar seña con Mercado Pago"}
+          {pagando ? "⏳ Procesando el pago…" : "💳 Pagar seña con Mercado Pago"}
         </button>
 
-        {expired && (
+        {expirado && (
           <button
             className="btn btn--outline w-full mt-md"
             onClick={() => navigate(-1)}

@@ -1,63 +1,40 @@
-import { useEffect, useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { session } from "../api/client";
-import {
-  mockGetComplex,
-  mockGetGrid,
-  mockInitiateBooking,
-  DEPORTES,
-  ESTADO_SLOT,
-} from "../api/mockData";
+import { getComplex, getGrid, initiateBooking } from "../api/client";
+import { DEPORTES, ESTADO_SLOT } from "../api/constants";
+import { useAuth } from "../context/AuthContext";
 import SlotGrid from "../components/SlotGrid";
 import DateNav from "../components/DateNav";
 import SportFilter from "../components/SportFilter";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../components/Toast";
-
-const hoy = () => new Date().toLocaleDateString("en-CA");
+import { useApi } from "../hooks/useApi";
+import { calcularSena, calcularSaldo, formatMoney, hoy, formatHoraSlot } from "../utils/format";
 
 export default function ComplexPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { isLoggedIn, role } = useAuth();
 
-  const [complejo, setComplejo] = useState(null);
   const [fecha, setFecha] = useState(hoy());
-  const [grilla, setGrilla] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [sportFilter, setSportFilter] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [reservando, setReservando] = useState(false);
 
-  // Cargar info del complejo
-  useEffect(() => {
-    mockGetComplex(id)
-      .then(setComplejo)
-      .catch((e) => setError(e.message));
-  }, [id]);
+  const { data: complejo, error: complexError } = useApi(() => getComplex(id), [id]);
+  const {
+    data: grillaData,
+    loading: loadingGrid,
+    error: gridError,
+    reload: reloadGrid,
+  } = useApi(() => getGrid(id, fecha), [id, fecha]);
 
-  // Cargar grilla
-  useEffect(() => {
-    setLoading(true);
-    setError("");
-    mockGetGrid(id, fecha)
-      .then((data) => {
-        setGrilla(data);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
-  }, [id, fecha]);
+  const grilla = grillaData ?? [];
 
   // Deportes únicos para filtros
-  const uniqueSports = useMemo(() => {
-    const set = new Set(grilla.map((c) => c.deporte));
-    return [...set];
-  }, [grilla]);
+  const uniqueSports = useMemo(() => [...new Set(grilla.map((c) => c.deporte))], [grilla]);
 
   // Grilla filtrada
   const filteredGrid = useMemo(() => {
@@ -66,9 +43,14 @@ export default function ComplexPage() {
   }, [grilla, sportFilter]);
 
   function handleSlotClick(slot, court) {
-    if (!session.token()) {
-      toast?.info("Ingresá para reservar tu turno");
+    if (!isLoggedIn) {
+      toast.info("Ingresá para reservar tu turno");
       navigate("/login", { state: { next: `/complejo/${id}` } });
+      return;
+    }
+    if (role === "ROLE_ADMIN_COMPLEX") {
+      // El dueño registra turnos desde su agenda (reserva manual), no via checkout.
+      toast.info("Como dueño del complejo, registrá el turno desde tu Agenda (turno manual)");
       return;
     }
     setSelectedSlot(slot);
@@ -78,17 +60,16 @@ export default function ComplexPage() {
   async function handleReservar() {
     if (!selectedSlot) return;
     setReservando(true);
-    setError("");
     try {
-      const data = await mockInitiateBooking(selectedSlot.id);
-      setSelectedSlot(null);
-      setSelectedCourt(null);
-      toast?.success("Turno retenido. Tenés 15 minutos para pagar.");
+      const data = await initiateBooking(selectedSlot.id);
+      closeModal();
+      toast.success("Turno retenido. Tenés 5 minutos para pagar.");
       navigate(`/checkout/${data.bookingId}`, { state: data });
     } catch (e) {
-      setError(e.message);
-      toast?.error(e.message);
-      setReservando(false);
+      // 409 = el slot acaba de ser tomado por otro jugador (HU-08, escenario 2)
+      toast.error(e.status === 409 ? "El turno acaba de ser tomado por otro jugador" : e.message);
+      closeModal();
+      reloadGrid();
     }
   }
 
@@ -101,6 +82,9 @@ export default function ComplexPage() {
   const deporteInfo = selectedCourt
     ? DEPORTES[selectedCourt.deporte] || { label: selectedCourt.deporte, icon: "🏟️" }
     : null;
+  const sena = calcularSena(selectedCourt);
+  const saldo = calcularSaldo(selectedCourt);
+  const error = complexError || gridError;
 
   return (
     <div className="page-enter">
@@ -128,13 +112,13 @@ export default function ComplexPage() {
       />
 
       {/* Error */}
-      {error && <p className="msg msg--error">⚠️ {error}</p>}
+      {error && <p className="msg msg--error" role="alert">⚠️ {error}</p>}
 
       {/* Grilla de slots */}
       <SlotGrid
         grid={filteredGrid}
         onSlotClick={handleSlotClick}
-        loading={loading}
+        loading={loadingGrid}
       />
 
       {/* Modal de confirmación */}
@@ -173,23 +157,21 @@ export default function ComplexPage() {
                 })}
               </p>
               <p>
-                🕒 {selectedSlot.inicio.split("T")[1]?.substring(0, 5)} hs
+                🕒 {formatHoraSlot(selectedSlot.inicio)} hs
               </p>
             </div>
             <div className="resumen">
-              <p>Precio total: <strong>${selectedCourt.precio?.toLocaleString("es-AR")}</strong></p>
+              <p>Precio total: <strong>${formatMoney(selectedCourt.precio)}</strong></p>
               <p>
                 Seña online ({selectedCourt.porcentajeSena}%):{" "}
-                <strong style={{ color: "var(--accent)" }}>
-                  ${Math.round(selectedCourt.precio * selectedCourt.porcentajeSena / 100).toLocaleString("es-AR")}
-                </strong>
+                <strong style={{ color: "var(--accent)" }}>${formatMoney(sena)}</strong>
               </p>
               <p className="muted" style={{ fontSize: "0.8rem", marginTop: "var(--space-xs)" }}>
-                Saldo de ${(selectedCourt.precio - Math.round(selectedCourt.precio * selectedCourt.porcentajeSena / 100)).toLocaleString("es-AR")} se abona en el mostrador
+                Saldo de ${formatMoney(saldo)} se abona en el mostrador
               </p>
             </div>
             <p className="muted" style={{ fontSize: "0.78rem", marginTop: "var(--space-md)" }}>
-              🔒 Al reservar, el turno se retiene 15 minutos para completar el pago vía Mercado Pago.
+              🔒 Al reservar, el turno se retiene 5 minutos para completar el pago vía Mercado Pago.
             </p>
           </div>
         )}

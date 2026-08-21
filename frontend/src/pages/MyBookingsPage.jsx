@@ -1,39 +1,37 @@
-import { useEffect, useState } from "react";
-import { mockGetMyBookings, mockCancelBooking, ESTADO_BOOKING } from "../api/mockData";
+import { useState } from "react";
+import { cancelBooking, getMyBookings } from "../api/client";
+import { ESTADO_BOOKING } from "../api/constants";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../components/Toast";
+import { useApi } from "../hooks/useApi";
+import { formatMoney } from "../utils/format";
 
 export default function MyBookingsPage() {
   const toast = useToast();
-  const [reservas, setReservas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data,
+    loading,
+    error,
+    reload,
+  } = useApi(() => getMyBookings(), []);
+  // El backend devuelve Page<MyBookingDTO>: la lista vive en .content
+  const reservas = data?.content ?? [];
   const [cancelId, setCancelId] = useState(null);
   const [cancelling, setCancelling] = useState(false);
-
-  useEffect(() => {
-    mockGetMyBookings()
-      .then((data) => {
-        setReservas(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
 
   async function handleCancel() {
     if (!cancelId) return;
     setCancelling(true);
     try {
-      const res = await mockCancelBooking(cancelId);
+      const res = await cancelBooking(cancelId);
       const msg = res.resultado === "CANCELADA_REEMBOLSADA"
         ? "Reserva cancelada. La seña será reembolsada por Mercado Pago."
         : "Reserva cancelada. La seña quedó retenida por el complejo (margen ≤ 2 hs).";
-      toast?.success(msg);
+      toast.success(msg);
       setCancelId(null);
-      // Refresh
-      const updated = await mockGetMyBookings();
-      setReservas(updated);
+      reload();
     } catch (e) {
-      toast?.error("Error: " + e.message);
+      toast.error("Error: " + e.message);
     }
     setCancelling(false);
   }
@@ -57,7 +55,9 @@ export default function MyBookingsPage() {
     <div className="page-enter">
       <h1>Mis reservas</h1>
 
-      {reservas.length === 0 ? (
+      {error ? (
+        <p className="msg msg--error" role="alert">⚠️ {error}</p>
+      ) : reservas.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state__icon">📋</div>
           <p className="empty-state__title">Todavía no tenés reservas</p>
@@ -85,16 +85,27 @@ export default function MyBookingsPage() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm) var(--space-md)", marginTop: "var(--space-sm)", fontSize: "0.88rem" }}>
                   <span>📅 {fecha.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" })}</span>
                   <span>🕒 {fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} hs</span>
+                  {r.fuente === "MOSTRADOR" && (
+                    <span className="badge badge--manual">🎫 Mostrador</span>
+                  )}
                 </div>
+
+                {/* Turno manual: el dueño distingue a quién corresponde la reserva */}
+                {r.fuente === "MOSTRADOR" && r.titular && (
+                  <p className="resumen" style={{ marginTop: "var(--space-sm)", marginBottom: 0 }}>
+                    👤 Titular: <strong>{r.titular}</strong>
+                    {r.telefono && <> · 📞 {r.telefono}</>}
+                  </p>
+                )}
 
                 <div className="resumen" style={{ marginTop: "var(--space-sm)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <span className="muted">Seña</span>
-                    <strong>${r.sena?.toLocaleString("es-AR")}</strong>
+                    <strong>${formatMoney(r.sena)}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <span className="muted">Saldo mostrador</span>
-                    <span>${r.saldoMostrador?.toLocaleString("es-AR")}</span>
+                    <span>${formatMoney(r.saldoMostrador)}</span>
                   </div>
                 </div>
 

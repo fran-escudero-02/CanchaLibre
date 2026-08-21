@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
-import { clearSession, session } from "./api/client";
 import { ToastProvider } from "./components/Toast";
 import ThemeToggle from "./components/ThemeToggle";
+import { RequireAuth, RequireRole } from "./components/RequireAuth";
+import { useAuth } from "./context/AuthContext";
 import HomePage from "./pages/HomePage";
 import ComplexPage from "./pages/ComplexPage";
 import LoginPage from "./pages/LoginPage";
@@ -15,14 +16,13 @@ import AdminAgendaPage from "./pages/AdminAgendaPage";
 
 export default function App() {
   const navigate = useNavigate();
-  const logged = !!session.token();
-  const role = session.role();
-  const name = session.name();
+  const { isLoggedIn, role, name, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  function logout() {
-    clearSession();
-    window.location.href = "/";
+  function handleLogout() {
+    logout();
+    setMenuOpen(false);
+    navigate("/");
   }
 
   function closeMenu() {
@@ -45,7 +45,7 @@ export default function App() {
 
           <div className="header__right">
             <nav className={`header__nav ${menuOpen ? "header__nav--open" : ""}`}>
-              {logged ? (
+              {isLoggedIn ? (
                 <>
                   {name && (
                     <span className="nav-link muted" style={{ fontSize: "0.82rem", cursor: "default" }}>
@@ -55,12 +55,12 @@ export default function App() {
                   <NavLink to="/mis-reservas" onClick={closeMenu}>
                     📋 Mis reservas
                   </NavLink>
-                  {role === "ROLE_ADMIN_COMPLEX" && (
+                  {(role === "ROLE_ADMIN_COMPLEX" || role === "ROLE_SUPERADMIN") && (
                     <NavLink to="/admin/agenda" onClick={closeMenu}>
                       📊 Agenda
                     </NavLink>
                   )}
-                  <button className="btn btn--ghost" onClick={logout}>
+                  <button className="btn btn--ghost" onClick={handleLogout}>
                     Salir
                   </button>
                 </>
@@ -94,11 +94,32 @@ export default function App() {
             <Route path="/complejo/:id" element={<ComplexPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegisterPage />} />
-            <Route path="/checkout/:bookingId" element={<CheckoutPage />} />
+            <Route
+              path="/checkout/:bookingId"
+              element={
+                <RequireAuth>
+                  <CheckoutPage />
+                </RequireAuth>
+              }
+            />
             <Route path="/reserva/exito" element={<SuccessPage />} />
             <Route path="/reserva/error" element={<ErrorPage />} />
-            <Route path="/mis-reservas" element={<MyBookingsPage />} />
-            <Route path="/admin/agenda" element={<AdminAgendaPage />} />
+            <Route
+              path="/mis-reservas"
+              element={
+                <RequireAuth>
+                  <MyBookingsPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin/agenda"
+              element={
+                <RequireRole roles={["ROLE_ADMIN_COMPLEX", "ROLE_SUPERADMIN"]}>
+                  <AdminAgendaPage />
+                </RequireRole>
+              }
+            />
           </Routes>
         </main>
 

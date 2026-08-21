@@ -20,8 +20,10 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(unique = true)
+    // Muchos bookings historicos pueden referenciar el mismo slot
+    // (expiradas/canceladas); solo uno esta activo a la vez.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "slot_id")
     private Slot slot;
 
     @ManyToOne(fetch = FetchType.LAZY)

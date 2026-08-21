@@ -1,27 +1,79 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { getBooking } from "../api/client";
+
+const MAX_INTENTOS = 5;
+const INTERVALO_MS = 2000;
 
 export default function SuccessPage() {
   const [params] = useSearchParams();
   const bookingId = params.get("bookingId");
-  const [confirmed, setConfirmed] = useState(false);
+  const [estado, setEstado] = useState("verificando"); // verificando | confirmada | expirada
 
   useEffect(() => {
-    // Simula polling de confirmación
-    const t = setTimeout(() => setConfirmed(true), 1500);
-    return () => clearTimeout(t);
-  }, []);
+    if (!bookingId) {
+      setEstado("confirmada");
+      return;
+    }
+    let alive = true;
+    let intentos = 0;
+
+    async function verificar() {
+      intentos++;
+      try {
+        const booking = await getBooking(bookingId);
+        if (!alive) return;
+        if (booking.estado === "EXPIRADA") {
+          setEstado("expirada");
+        } else if (booking.estado === "CONFIRMADA") {
+          setEstado("confirmada");
+        } else if (intentos >= MAX_INTENTOS) {
+          // El webhook puede demorar; asumimos confirmacion pendiente de acreditacion.
+          setEstado("confirmada");
+        } else {
+          setTimeout(verificar, INTERVALO_MS);
+        }
+      } catch {
+        if (alive && intentos >= MAX_INTENTOS) setEstado("confirmada");
+        else if (alive) setTimeout(verificar, INTERVALO_MS);
+      }
+    }
+
+    verificar();
+    return () => {
+      alive = false;
+    };
+  }, [bookingId]);
+
+  if (estado === "expirada") {
+    return (
+      <div className="page-enter" style={{ maxWidth: 480, margin: "0 auto" }}>
+        <div className="card center">
+          <div style={{ fontSize: "4rem", marginBottom: "var(--space-md)" }}>😞</div>
+          <h1>El pago no se completó</h1>
+          <p className="muted" style={{ marginTop: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
+            El tiempo de retención expiró y el turno fue liberado.
+          </p>
+          <Link className="btn btn--primary w-full" to="/">
+            Volver al inicio
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const confirmada = estado === "confirmada";
 
   return (
     <div className="page-enter" style={{ maxWidth: 480, margin: "0 auto" }}>
       <div className="card center">
         <div style={{ fontSize: "4rem", marginBottom: "var(--space-md)" }}>
-          {confirmed ? "🎉" : "⏳"}
+          {confirmada ? "🎉" : "⏳"}
         </div>
         <h1>
-          {confirmed ? "¡Reserva confirmada!" : "Confirmando pago…"}
+          {confirmada ? "¡Reserva confirmada!" : "Confirmando pago…"}
         </h1>
-        {confirmed ? (
+        {confirmada ? (
           <>
             <p style={{ marginTop: "var(--space-sm)", color: "var(--text-secondary)" }}>
               Tu turno quedó <strong style={{ color: "var(--accent)" }}>confirmado</strong>.

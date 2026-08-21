@@ -1,5 +1,8 @@
 package com.canchalibre.user;
 
+import com.canchalibre.user.UserService.ProfileResponse;
+import com.canchalibre.user.UserService.UpdateProfileRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -9,15 +12,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserRepository userRepository;
-
-    public record ProfileResponse(Long id, String fullName, String email, String phone, String role) {
-        static ProfileResponse from(User u) {
-            return new ProfileResponse(u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getRole().name());
-        }
-    }
-
-    public record UpdateProfileRequest(String fullName, String phone) {}
+    private final UserService userService;
 
     @GetMapping
     public ProfileResponse profile(@AuthenticationPrincipal UserPrincipal principal) {
@@ -25,11 +20,8 @@ public class UserController {
     }
 
     @PutMapping
-    public ProfileResponse update(@RequestBody UpdateProfileRequest request,
+    public ProfileResponse update(@Valid @RequestBody UpdateProfileRequest request,
                                   @AuthenticationPrincipal UserPrincipal principal) {
-        User user = principal.getUser();
-        if (request.fullName() != null) user.setFullName(request.fullName());
-        if (request.phone() != null) user.setPhone(request.phone());
-        return ProfileResponse.from(userRepository.save(user));
+        return userService.update(principal.getUser(), request);
     }
 }

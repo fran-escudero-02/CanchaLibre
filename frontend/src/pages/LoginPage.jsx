@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { saveSession } from "../api/client";
-import { mockLogin } from "../api/mockData";
+import { login } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 
 export default function LoginPage() {
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const auth = useAuth();
   const next = location.state?.next || "/";
 
   async function submit(e) {
@@ -19,11 +20,10 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const data = await mockLogin(email, password);
-      saveSession(data);
-      toast?.success(`¡Bienvenido, ${data.fullName}!`);
-      // Force re-render of App by navigating
-      window.location.href = next;
+      const data = await login(email, password);
+      auth.login(data);
+      toast.success(`¡Bienvenido, ${data.fullName}!`);
+      navigate(next, { replace: true });
     } catch (err) {
       setError(err.status === 401 ? "Email o contraseña incorrectos" : "Error: " + err.message);
       setLoading(false);
@@ -68,7 +68,8 @@ export default function LoginPage() {
             ¿No tenés cuenta? <Link to="/registro">Registrate</Link>
           </p>
           <p className="muted text-center" style={{ fontSize: "0.75rem", marginTop: "var(--space-sm)" }}>
-            💡 Usá <strong>admin@canchalibre.com</strong> para ingresar como administrador (demo)
+            💡 Demo: <strong>player@canchalibre.dev</strong> / player1234 ·{" "}
+            <strong>admin@canchalibre.dev</strong> / admin1234
           </p>
         </div>
       </div>

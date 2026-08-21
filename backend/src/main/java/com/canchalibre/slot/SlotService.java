@@ -33,9 +33,15 @@ public class SlotService {
         ZoneId zone = ZoneId.of(timezone);
         Instant from = date.atStartOfDay(zone).toInstant();
         Instant to = date.plusDays(1).atStartOfDay(zone).toInstant();
+        Instant ahora = Instant.now();
+        // La grilla pública solo muestra turnos futuros: los que ya empezaron
+        // no se pueden ver ni reservar (RF-07).
         return courtRepository.findByComplexIdAndIsActiveTrue(complexId).stream()
                 .map(court -> toGridDTO(court,
-                        slotRepository.findByCourtIdAndStartAtBetweenOrderByStartAtAsc(court.getId(), from, to)))
+                        slotRepository.findByCourtIdAndStartAtBetweenOrderByStartAtAsc(court.getId(), from, to)
+                                .stream()
+                                .filter(s -> s.getStartAt().isAfter(ahora))
+                                .toList()))
                 .toList();
     }
 
@@ -85,5 +91,22 @@ public class SlotService {
         }
         slot.setStatus(SlotStatus.BLOQUEADO);
         slot.setBlockReason(reason);
+    }
+
+    /**
+     * Deshace un bloqueo operativo (HU-06): vuelve el turno a DISPONIBLE.
+     */
+    @Transactional
+    public void unblockSlot(Long slotId, Long complexId) {
+        Slot slot = slotRepository.findByIdForUpdate(slotId)
+                .orElseThrow(() -> new EntityNotFoundException("El turno no existe"));
+        if (!slot.getCourt().getComplex().getId().equals(complexId)) {
+            throw new AccessDeniedException("Slot ajeno");
+        }
+        if (slot.getStatus() != SlotStatus.BLOQUEADO) {
+            throw new IllegalStateException("Solo se pueden desbloquear turnos BLOQUEADOS");
+        }
+        slot.setStatus(SlotStatus.DISPONIBLE);
+        slot.setBlockReason(null);
     }
 }

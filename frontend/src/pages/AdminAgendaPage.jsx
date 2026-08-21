@@ -1,70 +1,122 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  mockGetAdminAgenda,
-  mockBlockSlot,
-  mockManualBooking,
-  DEPORTES,
-} from "../api/mockData";
+  blockSlot,
+  cancelBooking,
+  getAdminAgenda,
+  manualBooking,
+  unblockSlot,
+  updateManualBooking,
+} from "../api/client";
+import { DEPORTES } from "../api/constants";
 import DateNav from "../components/DateNav";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../components/Toast";
-
-const hoy = () => new Date().toLocaleDateString("en-CA");
+import { useApi } from "../hooks/useApi";
+import { formatMoney, hoy } from "../utils/format";
 
 export default function AdminAgendaPage() {
   const toast = useToast();
   const [fecha, setFecha] = useState(hoy());
-  const [agenda, setAgenda] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Modal de turno manual
+  const {
+    data: agenda,
+    loading,
+    error,
+    reload,
+  } = useApi(() => getAdminAgenda(fecha), [fecha]);
+
+  // Modal de turno manual (alta)
   const [manualSlot, setManualSlot] = useState(null);
   const [titular, setTitular] = useState("");
   const [telefono, setTelefono] = useState("");
 
+  // Modal de edición de turno manual
+  const [editBooking, setEditBooking] = useState(null); // { bookingId, titular, telefono }
+
+  // Modal de cancelación de reserva
+  const [cancelTarget, setCancelTarget] = useState(null); // { bookingId, titular }
+
   // Modal de bloqueo
-  const [blockSlot, setBlockSlot] = useState(null);
+  const [blockSlotId, setBlockSlotId] = useState(null);
   const [motivo, setMotivo] = useState("Mantenimiento");
 
-  useEffect(() => {
-    setLoading(true);
-    mockGetAdminAgenda(fecha)
-      .then((data) => {
-        setAgenda(data);
-        setLoading(false);
-      })
-      .catch((e) => {
-        toast?.error(e.message);
-        setLoading(false);
-      });
-  }, [fecha]);
+  function cerrarModales() {
+    setManualSlot(null);
+    setEditBooking(null);
+    setCancelTarget(null);
+    setBlockSlotId(null);
+    setTitular("");
+    setTelefono("");
+  }
 
   async function handleBlock() {
-    if (!blockSlot) return;
-    await mockBlockSlot(blockSlot);
-    toast?.success("Slot bloqueado correctamente");
-    setBlockSlot(null);
-    // Refresh
-    const data = await mockGetAdminAgenda(fecha);
-    setAgenda(data);
+    if (!blockSlotId) return;
+    try {
+      await blockSlot(blockSlotId, motivo.trim() || "Mantenimiento");
+      toast.success("Turno bloqueado correctamente");
+      setBlockSlotId(null);
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleUnblock(slotId) {
+    try {
+      await unblockSlot(slotId);
+      toast.success("Turno desbloqueado");
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
   }
 
   async function handleManualBooking() {
     if (!manualSlot || !titular.trim()) {
-      toast?.error("Ingresá al menos el nombre del titular");
+      toast.error("Ingresá al menos el nombre del titular");
       return;
     }
     try {
-      await mockManualBooking(manualSlot, titular.trim(), telefono.trim());
-      toast?.success("Turno manual registrado como CONFIRMADO");
-      setManualSlot(null);
-      setTitular("");
-      setTelefono("");
-      // Refresh
-      const data = await mockGetAdminAgenda(fecha);
-      setAgenda(data);
+      await manualBooking(manualSlot, titular.trim(), telefono.trim());
+      toast.success("Turno manual registrado como CONFIRMADO");
+      cerrarModales();
+      reload();
     } catch (e) {
-      toast?.error(e.message);
+      toast.error(e.message);
+    }
+  }
+
+  async function handleEditBooking() {
+    if (!editBooking || !editBooking.titular.trim()) {
+      toast.error("Ingresá al menos el nombre del titular");
+      return;
+    }
+    try {
+      await updateManualBooking(
+        editBooking.bookingId,
+        editBooking.titular.trim(),
+        editBooking.telefono.trim()
+      );
+      toast.success("Turno manual actualizado");
+      cerrarModales();
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleCancelBooking() {
+    if (!cancelTarget) return;
+    try {
+      const res = await cancelBooking(cancelTarget.bookingId);
+      const msg = res.resultado === "CANCELADA_REEMBOLSADA"
+        ? "Reserva cancelada (seña reembolsada según política)."
+        : "Reserva cancelada (seña retenida según política).";
+      toast.success(msg);
+      cerrarModales();
+      reload();
+    } catch (e) {
+      toast.error(e.message);
     }
   }
 
@@ -82,40 +134,52 @@ export default function AdminAgendaPage() {
     );
   }
 
-  if (!agenda) {
+  if (error || !agenda) {
     return (
       <div className="page-enter">
         <div className="empty-state">
           <div className="empty-state__icon">📋</div>
           <p className="empty-state__title">No se pudo cargar la agenda</p>
+          <p className="muted">{error || "Intentá de nuevo más tarde."}</p>
+          <button className="btn btn--outline mt-md" onClick={reload}>
+            Reintentar
+          </button>
         </div>
       </div>
     );
   }
+
+  // KPIs de ocupación calculados sobre los slots de la agenda
+  const totalSlots = agenda.canchas.reduce((acc, c) => acc + c.slots.length, 0);
+  const slotsOcupados = agenda.canchas.reduce(
+    (acc, c) => acc + c.slots.filter((s) => s.estado === "CONFIRMADO" || s.estado === "BLOQUEADO").length,
+    0
+  );
+  const ocupacion = totalSlots > 0 ? Math.round((slotsOcupados / totalSlots) * 100) : 0;
 
   return (
     <div className="page-enter">
       <h1>Agenda del día</h1>
 
       {/* Date nav */}
-      <DateNav value={fecha} onChange={setFecha} />
+      <DateNav value={fecha} onChange={setFecha} minDate={hoy()} />
 
       {/* KPIs */}
       <div className="kpis">
         <div className="kpi kpi--accent">
-          <span className="kpi__value">${agenda.totalSenas?.toLocaleString("es-AR")}</span>
+          <span className="kpi__value">${formatMoney(agenda.totalSenas)}</span>
           <span className="kpi__label">Señas cobradas</span>
         </div>
         <div className="kpi">
-          <span className="kpi__value">${agenda.totalSaldos?.toLocaleString("es-AR")}</span>
+          <span className="kpi__value">${formatMoney(agenda.totalSaldos)}</span>
           <span className="kpi__label">Saldos pendientes</span>
         </div>
         <div className="kpi">
-          <span className="kpi__value">{agenda.ocupacion}%</span>
+          <span className="kpi__value">{ocupacion}%</span>
           <span className="kpi__label">Ocupación</span>
         </div>
         <div className="kpi">
-          <span className="kpi__value">{agenda.slotsOcupados}/{agenda.totalSlots}</span>
+          <span className="kpi__value">{slotsOcupados}/{totalSlots}</span>
           <span className="kpi__label">Turnos usados</span>
         </div>
       </div>
@@ -124,7 +188,7 @@ export default function AdminAgendaPage() {
       <div className="progress mb-md">
         <div
           className="progress__bar"
-          style={{ width: `${agenda.ocupacion}%` }}
+          style={{ width: `${ocupacion}%` }}
         />
       </div>
 
@@ -132,7 +196,7 @@ export default function AdminAgendaPage() {
       {agenda.canchas.map((c) => {
         const deporte = DEPORTES[c.deporte] || { label: c.deporte, icon: "🏟️" };
         return (
-          <section className="card court-section" key={c.cancha}>
+          <section className="card court-section" key={c.courtId}>
             <h2>
               {c.cancha}{" "}
               <span className="court-header__tag">{deporte.icon} {deporte.label}</span>
@@ -163,25 +227,58 @@ export default function AdminAgendaPage() {
                       </td>
                       <td>{s.titular || "—"}</td>
                       <td>{s.telefono || "—"}</td>
-                      <td>{s.sena > 0 ? `$${s.sena.toLocaleString("es-AR")}` : "—"}</td>
-                      <td>{s.saldo > 0 ? `$${s.saldo.toLocaleString("es-AR")}` : "—"}</td>
+                      <td>{s.sena > 0 ? `$${formatMoney(s.sena)}` : "—"}</td>
+                      <td>{s.saldo > 0 ? `$${formatMoney(s.saldo)}` : "—"}</td>
                       <td>
-                        {s.estado === "DISPONIBLE" && (
-                          <span className="acciones">
+                        <span className="acciones">
+                          {s.estado === "DISPONIBLE" && (
+                            <>
+                              <button
+                                className="btn btn--small btn--outline"
+                                onClick={() => { setManualSlot(s.slotId); setTitular(""); setTelefono(""); }}
+                                aria-label={`Registrar turno manual de las ${s.hora}`}
+                              >
+                                📝 Manual
+                              </button>
+                              <button
+                                className="btn btn--small btn--danger"
+                                onClick={() => setBlockSlotId(s.slotId)}
+                                aria-label={`Bloquear turno de las ${s.hora}`}
+                              >
+                                🔒 Bloquear
+                              </button>
+                            </>
+                          )}
+                          {s.estado === "BLOQUEADO" && (
                             <button
                               className="btn btn--small btn--outline"
-                              onClick={() => setManualSlot(s.slotId)}
+                              onClick={() => handleUnblock(s.slotId)}
+                              aria-label={`Desbloquear turno de las ${s.hora}`}
                             >
-                              📝 Manual
+                              🔓 Desbloquear
                             </button>
-                            <button
-                              className="btn btn--small btn--danger"
-                              onClick={() => setBlockSlot(s.slotId)}
-                            >
-                              🔒 Bloquear
-                            </button>
-                          </span>
-                        )}
+                          )}
+                          {s.estado === "CONFIRMADO" && s.bookingId && s.fuente === "MOSTRADOR" && (
+                            <>
+                              <button
+                                className="btn btn--small btn--outline"
+                                onClick={() =>
+                                  setEditBooking({ bookingId: s.bookingId, titular: s.titular || "", telefono: s.telefono || "" })
+                                }
+                                aria-label={`Editar turno manual de las ${s.hora}`}
+                              >
+                                ✏️ Editar
+                              </button>
+                              <button
+                                className="btn btn--small btn--danger"
+                                onClick={() => setCancelTarget({ bookingId: s.bookingId, titular: s.titular })}
+                                aria-label={`Cancelar turno de las ${s.hora}`}
+                              >
+                                ✖ Cancelar
+                              </button>
+                            </>
+                          )}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -194,12 +291,12 @@ export default function AdminAgendaPage() {
 
       {/* Modal bloqueo */}
       <ConfirmModal
-        open={!!blockSlot}
-        onClose={() => setBlockSlot(null)}
+        open={!!blockSlotId}
+        onClose={() => setBlockSlotId(null)}
         title="Bloquear turno"
         actions={
           <>
-            <button className="btn btn--outline" onClick={() => setBlockSlot(null)}>Cancelar</button>
+            <button className="btn btn--outline" onClick={() => setBlockSlotId(null)}>Cancelar</button>
             <button className="btn btn--danger" onClick={handleBlock}>🔒 Confirmar bloqueo</button>
           </>
         }
@@ -214,21 +311,19 @@ export default function AdminAgendaPage() {
             />
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
-            El turno quedará inaccesible para los jugadores.
+            El turno quedará inaccesible para los jugadores. Podés desbloquearlo cuando quieras.
           </p>
         </div>
       </ConfirmModal>
 
-      {/* Modal turno manual */}
+      {/* Modal turno manual (alta) */}
       <ConfirmModal
         open={!!manualSlot}
-        onClose={() => { setManualSlot(null); setTitular(""); setTelefono(""); }}
+        onClose={cerrarModales}
         title="Registrar turno manual"
         actions={
           <>
-            <button className="btn btn--outline" onClick={() => { setManualSlot(null); setTitular(""); setTelefono(""); }}>
-              Cancelar
-            </button>
+            <button className="btn btn--outline" onClick={cerrarModales}>Cancelar</button>
             <button className="btn btn--primary" onClick={handleManualBooking}>
               ✅ Confirmar turno
             </button>
@@ -242,7 +337,6 @@ export default function AdminAgendaPage() {
               value={titular}
               onChange={(e) => setTitular(e.target.value)}
               placeholder="Nombre completo"
-              autoFocus
             />
           </label>
           <label>
@@ -255,6 +349,67 @@ export default function AdminAgendaPage() {
           </label>
           <p className="muted" style={{ fontSize: "0.78rem" }}>
             El turno se registra como CONFIRMADO sin seña online. El cobro se gestiona presencialmente.
+          </p>
+        </div>
+      </ConfirmModal>
+
+      {/* Modal edición de turno manual */}
+      <ConfirmModal
+        open={!!editBooking}
+        onClose={cerrarModales}
+        title="Editar turno manual"
+        actions={
+          <>
+            <button className="btn btn--outline" onClick={cerrarModales}>Cancelar</button>
+            <button className="btn btn--primary" onClick={handleEditBooking}>
+              💾 Guardar cambios
+            </button>
+          </>
+        }
+      >
+        <div className="form">
+          <label>
+            Nombre del titular
+            <input
+              value={editBooking?.titular || ""}
+              onChange={(e) => setEditBooking({ ...editBooking, titular: e.target.value })}
+              placeholder="Nombre completo"
+            />
+          </label>
+          <label>
+            Teléfono
+            <input
+              value={editBooking?.telefono || ""}
+              onChange={(e) => setEditBooking({ ...editBooking, telefono: e.target.value })}
+              placeholder="Ej: 11-2345-6789"
+            />
+          </label>
+        </div>
+      </ConfirmModal>
+
+      {/* Modal cancelación de reserva */}
+      <ConfirmModal
+        open={!!cancelTarget}
+        onClose={cerrarModales}
+        title="¿Cancelar este turno?"
+        actions={
+          <>
+            <button className="btn btn--outline" onClick={cerrarModales}>Volver</button>
+            <button className="btn btn--danger" onClick={handleCancelBooking}>
+              Sí, cancelar turno
+            </button>
+          </>
+        }
+      >
+        <div>
+          <p style={{ marginBottom: "var(--space-sm)" }}>
+            {cancelTarget?.titular
+              ? <>Se cancelará el turno de <strong>{cancelTarget.titular}</strong>.</>
+              : "Se cancelará el turno seleccionado."}
+          </p>
+          <p className="muted" style={{ fontSize: "0.85rem" }}>
+            Si es una reserva online con más de 2 hs de margen, la seña se reembolsa;
+            si es manual, solo se libera el turno.
           </p>
         </div>
       </ConfirmModal>
