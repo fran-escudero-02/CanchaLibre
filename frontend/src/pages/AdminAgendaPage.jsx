@@ -151,11 +151,18 @@ export default function AdminAgendaPage() {
 
   // KPIs de ocupación calculados sobre los slots de la agenda
   const totalSlots = agenda.canchas.reduce((acc, c) => acc + c.slots.length, 0);
-  const slotsOcupados = agenda.canchas.reduce(
-    (acc, c) => acc + c.slots.filter((s) => s.estado === "CONFIRMADO" || s.estado === "BLOQUEADO").length,
+  const slotsConfirmados = agenda.canchas.reduce(
+    (acc, c) => acc + c.slots.filter((s) => s.estado === "CONFIRMADO").length,
     0
   );
-  const ocupacion = totalSlots > 0 ? Math.round((slotsOcupados / totalSlots) * 100) : 0;
+  const slotsBloqueados = agenda.canchas.reduce(
+    (acc, c) => acc + c.slots.filter((s) => s.estado === "BLOQUEADO").length,
+    0
+  );
+  const ocupacion = totalSlots > 0 ? Math.round(((slotsConfirmados + slotsBloqueados) / totalSlots) * 100) : 0;
+
+  // Anillo de progreso de ocupación
+  const ringCircumference = 2 * Math.PI * 26;
 
   return (
     <div className="page-enter">
@@ -164,23 +171,44 @@ export default function AdminAgendaPage() {
       {/* Date nav */}
       <DateNav value={fecha} onChange={setFecha} minDate={hoy()} />
 
-      {/* KPIs */}
+      {/* KPIs — bento grid */}
       <div className="kpis">
         <div className="kpi kpi--accent">
-          <span className="kpi__value">${formatMoney(agenda.totalSenas)}</span>
-          <span className="kpi__label">Señas cobradas</span>
+          <div className="kpi-ring" role="img" aria-label={`Ocupación del día: ${ocupacion}%`}>
+            <svg viewBox="0 0 64 64">
+              <circle className="bg-ring" cx="32" cy="32" r="26" />
+              <circle
+                className="fg-ring"
+                cx="32" cy="32" r="26"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringCircumference * (1 - ocupacion / 100)}
+              />
+            </svg>
+            <span className="kpi-ring__pct">{ocupacion}%</span>
+          </div>
+          <div className="kpi__body">
+            <span className="kpi__value">{slotsConfirmados + slotsBloqueados}/{totalSlots}</span>
+            <span className="kpi__label">Ocupación del día</span>
+          </div>
+        </div>
+        <div className="kpi kpi--accent">
+          <div className="kpi__body">
+            <span className="kpi__value">${formatMoney(agenda.totalSenas)}</span>
+            <span className="kpi__label">Señas cobradas vía MP</span>
+          </div>
         </div>
         <div className="kpi">
-          <span className="kpi__value">${formatMoney(agenda.totalSaldos)}</span>
-          <span className="kpi__label">Saldos pendientes</span>
+          <div className="kpi__body">
+            <span className="kpi__value">${formatMoney(agenda.totalSaldos)}</span>
+            <span className="kpi__label">Saldo a cobrar en mostrador</span>
+          </div>
         </div>
         <div className="kpi">
-          <span className="kpi__value">{ocupacion}%</span>
-          <span className="kpi__label">Ocupación</span>
-        </div>
-        <div className="kpi">
-          <span className="kpi__value">{slotsOcupados}/{totalSlots}</span>
-          <span className="kpi__label">Turnos usados</span>
+          <div className="kpi__body">
+            <span className="kpi__value">{slotsConfirmados}</span>
+            <span className="kpi__label">Turnos activos</span>
+            <span className="kpi__sub">{slotsBloqueados} bloqueados</span>
+          </div>
         </div>
       </div>
 

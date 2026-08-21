@@ -5,11 +5,11 @@ import { useState, useEffect } from "react";
  * Persists preference to localStorage and falls back to system preference.
  */
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState(() => {
-    const stored = localStorage.getItem("cl_theme");
-    if (stored) return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
+  // El atributo data-theme ya lo inicializa main.jsx (oscuro por defecto);
+  // el toggle solo cambia a partir del estado actual real.
+  const [theme, setTheme] = useState(
+    () => document.documentElement.getAttribute("data-theme") || "dark"
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

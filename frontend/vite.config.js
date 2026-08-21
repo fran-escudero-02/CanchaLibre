@@ -10,8 +10,8 @@ export default defineConfig({
       manifest: {
         name: "CanchaLibre",
         short_name: "CanchaLibre",
-        theme_color: "#16a34a",
-        background_color: "#ffffff",
+        theme_color: "#0b0f17",
+        background_color: "#0b0f17",
         display: "standalone",
         start_url: "/"
       }

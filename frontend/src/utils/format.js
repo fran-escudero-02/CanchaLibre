@@ -24,7 +24,17 @@ export function formatMoney(valor) {
   return Number(valor ?? 0).toLocaleString("es-AR");
 }
 
-/** Hora HH:mm desde un ISO de inicio de slot (sin depender del timezone del browser). */
+/** Hora HH:mm de un slot en la zona horaria del complejo (los ISO llegan en UTC). */
 export function formatHoraSlot(iso) {
-  return iso?.split("T")[1]?.substring(0, 5) || "--:--";
+  if (!iso) return "--:--";
+  try {
+    return new Date(iso).toLocaleTimeString("es-AR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+  } catch {
+    return "--:--";
+  }
 }

@@ -124,6 +124,13 @@ export default function CheckoutPage() {
           </div>
         </div>
 
+        {/* Banner de retención TTL */}
+        {!expirado && (
+          <p className="ttl-banner" role="status">
+            ⏳ Tu turno está retenido por <strong>5 minutos</strong> mientras completás el pago
+          </p>
+        )}
+
         {/* Timer */}
         <CountdownTimer
           expiresAt={booking.expiraEn}
@@ -137,9 +144,9 @@ export default function CheckoutPage() {
           </p>
         )}
 
-        {/* Botón de pago */}
+        {/* Botón de pago con marca de Mercado Pago */}
         <button
-          className="btn btn--primary w-full"
+          className="btn btn--mp w-full"
           onClick={pagar}
           disabled={pagando || expirado}
           style={{ padding: "14px 24px", fontSize: "1rem" }}

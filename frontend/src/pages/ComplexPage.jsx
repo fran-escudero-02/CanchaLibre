@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getComplex, getGrid, initiateBooking } from "../api/client";
-import { DEPORTES, ESTADO_SLOT } from "../api/constants";
+import { DEPORTES } from "../api/constants";
 import { useAuth } from "../context/AuthContext";
 import SlotGrid from "../components/SlotGrid";
 import DateNav from "../components/DateNav";
@@ -16,9 +16,10 @@ export default function ComplexPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { isLoggedIn, role } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [fecha, setFecha] = useState(hoy());
-  const [sportFilter, setSportFilter] = useState(null);
+  const [sportFilter, setSportFilter] = useState(searchParams.get("deporte"));
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedCourt, setSelectedCourt] = useState(null);
   const [reservando, setReservando] = useState(false);
@@ -33,8 +34,12 @@ export default function ComplexPage() {
 
   const grilla = grillaData ?? [];
 
-  // Deportes únicos para filtros
-  const uniqueSports = useMemo(() => [...new Set(grilla.map((c) => c.deporte))], [grilla]);
+  // Deportes únicos + conteo de canchas por deporte
+  const sportsInfo = useMemo(() => {
+    const counts = {};
+    for (const c of grilla) counts[c.deporte] = (counts[c.deporte] || 0) + 1;
+    return { sports: Object.keys(counts), counts };
+  }, [grilla]);
 
   // Grilla filtrada
   const filteredGrid = useMemo(() => {
@@ -88,7 +93,7 @@ export default function ComplexPage() {
 
   return (
     <div className="page-enter">
-      {/* Hero del complejo */}
+      {/* Banner del complejo con foto y acciones de contacto */}
       {complejo && (
         <div className="complex-hero">
           <h1>{complejo.name}</h1>
@@ -96,7 +101,18 @@ export default function ComplexPage() {
             <span>📍 {complejo.address}</span>
             <span>🕒 {complejo.openTime} a {complejo.closeTime}</span>
             <span>⏱️ Turnos de {complejo.slotDurationMinutes} min</span>
-            {complejo.phone && <span>📞 {complejo.phone}</span>}
+            {complejo.phone && (
+              <>
+                <a href={`tel:${complejo.phone}`}>📞 Llamar</a>
+                <a
+                  href={`https://wa.me/54${complejo.phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  💬 WhatsApp
+                </a>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -104,9 +120,10 @@ export default function ComplexPage() {
       {/* Navegación de fecha */}
       <DateNav value={fecha} onChange={setFecha} minDate={hoy()} />
 
-      {/* Filtros de deporte */}
+      {/* Filtros de deporte con conteo */}
       <SportFilter
-        sports={uniqueSports}
+        sports={sportsInfo.sports}
+        counts={sportsInfo.counts}
         active={sportFilter}
         onChange={setSportFilter}
       />

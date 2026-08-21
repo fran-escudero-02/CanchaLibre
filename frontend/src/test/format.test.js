@@ -14,7 +14,8 @@ describe("utils/format", () => {
 
   it("formatea montos y horas", () => {
     expect(formatMoney(6000)).toBe("6.000");
-    expect(formatHoraSlot("2026-08-21T19:30:00Z")).toBe("19:30");
+    // 22:00 UTC = 19:00 en la zona horaria del complejo (Argentina)
+    expect(formatHoraSlot("2026-08-21T22:00:00Z")).toBe("19:00");
     expect(formatHoraSlot(null)).toBe("--:--");
   });
 

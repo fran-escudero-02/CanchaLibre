@@ -1,5 +1,5 @@
-import { ESTADO_SLOT, DEPORTES } from "../api/constants";
-import { calcularSena, formatMoney } from "../utils/format";
+import { ESTADO_SLOT, DEPORTES, SPORT_IMAGES } from "../api/constants";
+import { calcularSena, formatMoney, formatHoraSlot } from "../utils/format";
 
 /**
  * SlotGrid – Grilla interactiva de disponibilidad.
@@ -38,28 +38,37 @@ export default function SlotGrid({ grid, onSlotClick, loading }) {
 
 function CourtSection({ cancha, onSlotClick }) {
   const deporte = DEPORTES[cancha.deporte] || { label: cancha.deporte, icon: "🏟️" };
+  const sena = calcularSena(cancha);
 
   return (
     <section className="card court-section">
       <div className="court-header">
-        <div>
-          <h2>{cancha.nombre}</h2>
-          <div className="court-header__info">
-            <span className="court-header__tag">
-              {deporte.icon} {deporte.label}
-            </span>
-            {cancha.techada && <span className="court-header__tag">🏠 Techada</span>}
-            {cancha.superficie && (
-              <span className="muted" style={{ fontSize: "0.75rem" }}>
-                {cancha.superficie.replace(/_/g, " ").toLowerCase()}
-              </span>
-            )}
+        <div className="court-header__info">
+          <div className="court-header__title">
+            <img
+              className="court-thumb"
+              src={SPORT_IMAGES[cancha.deporte] || SPORT_IMAGES.BASQUET}
+              alt={`Cancha de ${deporte.label}`}
+              loading="lazy"
+            />
+            <div>
+              <h2 style={{ margin: 0 }}>{cancha.nombre}</h2>
+              <div className="court-header__tags">
+                <span className="court-header__tag">{deporte.icon} {deporte.label}</span>
+                {cancha.techada && <span className="court-header__tag court-header__tag--neutral">🏠 Techada</span>}
+                {cancha.superficie && (
+                  <span className="court-header__tag court-header__tag--neutral">
+                    {cancha.superficie.replace(/_/g, " ").toLowerCase()}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div className="court-header__price-box">
           <div className="court-header__price">${formatMoney(cancha.precio)}</div>
-          <div className="muted" style={{ fontSize: "0.72rem" }}>
-            Seña {cancha.porcentajeSena}% · ${formatMoney(calcularSena(cancha))}
+          <div className="court-header__sena">
+            Seña {cancha.porcentajeSena}%: ${formatMoney(sena)}
           </div>
         </div>
       </div>
@@ -79,7 +88,7 @@ function CourtSection({ cancha, onSlotClick }) {
 function SlotButton({ slot, onClick }) {
   const config = ESTADO_SLOT[slot.estado] || ESTADO_SLOT.DISPONIBLE;
   const disabled = slot.estado !== "DISPONIBLE";
-  const time = formatTime(slot.inicio);
+  const time = formatHoraSlot(slot.inicio);
 
   return (
     <button
@@ -134,17 +143,4 @@ function SlotGridSkeleton() {
       ))}
     </div>
   );
-}
-
-function formatTime(iso) {
-  try {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) {
-      // Fallback: extract from ISO string
-      return iso.split("T")[1]?.substring(0, 5) || "--:--";
-    }
-    return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "--:--";
-  }
 }

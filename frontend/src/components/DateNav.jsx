@@ -1,67 +1,61 @@
 /**
- * DateNav – Navegador de fecha con botones prev/next y acceso directo al date picker.
+ * DateNav – Carrusel horizontal de días (Hoy, Mañana, semana) estilo sports-app
+ * + picker directo para fechas más lejanas.
  */
 export default function DateNav({ value, onChange, minDate }) {
   const min = minDate || todayStr();
-
-  function shift(days) {
-    const d = new Date(value + "T12:00:00");
-    d.setDate(d.getDate() + days);
-    const next = d.toLocaleDateString("en-CA");
-    if (next >= min) onChange(next);
-  }
-
-  const label = formatDateLabel(value);
-  const isPrevDisabled = value <= min;
+  const days = buildDays(7, min);
 
   return (
-    <div className="date-nav">
-      <button
-        className="date-nav__btn"
-        onClick={() => shift(-1)}
-        disabled={isPrevDisabled}
-        aria-label="Día anterior"
-      >
-        ‹
-      </button>
-      <span className="date-nav__label">{label}</span>
-      <button
-        className="date-nav__btn"
-        onClick={() => shift(1)}
-        aria-label="Día siguiente"
-      >
-        ›
-      </button>
-      <input
-        type="date"
-        value={value}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label="Seleccionar fecha"
-      />
+    <div className="day-nav" role="group" aria-label="Elegir fecha">
+      {days.map(({ iso, weekdayLabel, dayLabel, ariaLabel }) => {
+        const disabled = iso < min;
+        return (
+          <button
+            key={iso}
+            className={`day-chip ${value === iso ? "day-chip--active" : ""}`}
+            onClick={() => onChange(iso)}
+            disabled={disabled}
+            aria-label={ariaLabel}
+            aria-pressed={value === iso}
+          >
+            <span className="day-chip__weekday">{weekdayLabel}</span>
+            <span className="day-chip__day">{dayLabel}</span>
+          </button>
+        );
+      })}
+      <label className="day-nav__picker" title="Elegir otra fecha">
+        📅
+        <input
+          type="date"
+          value={value}
+          min={min}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          aria-label="Seleccionar fecha"
+        />
+      </label>
     </div>
   );
 }
 
-function todayStr() {
-  return new Date().toLocaleDateString("en-CA");
+function buildDays(count, min) {
+  const today = new Date();
+  const days = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const iso = d.toLocaleDateString("en-CA");
+    days.push({
+      iso,
+      weekdayLabel: i === 0 ? "Hoy" : i === 1 ? "Mañana" : d.toLocaleDateString("es-AR", { weekday: "short" }),
+      dayLabel: d.toLocaleDateString("es-AR", { day: "numeric", month: "numeric" }),
+      ariaLabel: d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }),
+      disabled: iso < min,
+    });
+  }
+  return days;
 }
 
-function formatDateLabel(dateStr) {
-  const d = new Date(dateStr + "T12:00:00");
-  const today = todayStr();
-  const tomorrow = (() => {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    return t.toLocaleDateString("en-CA");
-  })();
-
-  if (dateStr === today) return "📅 Hoy";
-  if (dateStr === tomorrow) return "📅 Mañana";
-
-  return d.toLocaleDateString("es-AR", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
+function todayStr() {
+  return new Date().toLocaleDateString("en-CA");
 }
