@@ -31,44 +31,46 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="page-enter" style={{ maxWidth: 420, margin: "0 auto" }}>
-      <div className="card">
-        <h1 style={{ textAlign: "center", marginBottom: "var(--space-lg)" }}>
-          Ingresar
-        </h1>
-        <form onSubmit={submit} className="form">
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
-              required
-              autoFocus
-            />
-          </label>
-          <label>
-            Contraseña
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Tu contraseña"
-              required
-            />
-          </label>
-          {error && <p className="msg msg--error">⚠️ {error}</p>}
-          <button className="btn btn--primary w-full" type="submit" disabled={loading}>
-            {loading ? "Ingresando…" : "Ingresar"}
-          </button>
-        </form>
-        <p className="muted text-center" style={{ marginTop: "var(--space-md)" }}>
-          ¿No tenés cuenta? <Link to="/registro">Registrate</Link>
-        </p>
-        <p className="muted text-center" style={{ fontSize: "0.75rem", marginTop: "var(--space-sm)" }}>
-          💡 Usá <strong>admin@canchalibre.com</strong> para ingresar como administrador (demo)
-        </p>
+    <div className="page-enter auth-page">
+      <div className="auth-card">
+        <div className="card">
+          <h1>Bienvenido de vuelta</h1>
+          <p className="auth-card__subtitle">Ingresá a tu cuenta para reservar</p>
+          <form onSubmit={submit} className="form">
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                required
+                autoFocus
+              />
+            </label>
+            <label>
+              Contraseña
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Tu contraseña"
+                required
+              />
+            </label>
+            {error && <p className="msg msg--error">⚠️ {error}</p>}
+            <button className="btn btn--primary w-full" type="submit" disabled={loading}>
+              {loading ? "Ingresando…" : "Ingresar"}
+            </button>
+          </form>
+          <div className="auth-divider">o</div>
+          <p className="muted text-center">
+            ¿No tenés cuenta? <Link to="/registro">Registrate</Link>
+          </p>
+          <p className="muted text-center" style={{ fontSize: "0.75rem", marginTop: "var(--space-sm)" }}>
+            💡 Usá <strong>admin@canchalibre.com</strong> para ingresar como administrador (demo)
+          </p>
+        </div>
       </div>
     </div>
   );

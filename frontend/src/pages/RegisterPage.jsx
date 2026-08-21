@@ -31,36 +31,38 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="page-enter" style={{ maxWidth: 420, margin: "0 auto" }}>
-      <div className="card">
-        <h1 style={{ textAlign: "center", marginBottom: "var(--space-lg)" }}>
-          Crear cuenta
-        </h1>
-        <form onSubmit={submit} className="form">
-          <label>
-            Nombre completo
-            <input value={form.fullName} onChange={set("fullName")} placeholder="Tu nombre" required autoFocus />
-          </label>
-          <label>
-            Email
-            <input type="email" value={form.email} onChange={set("email")} placeholder="tu@email.com" required />
-          </label>
-          <label>
-            Teléfono
-            <input value={form.phone} onChange={set("phone")} placeholder="Ej: 11-2345-6789" required />
-          </label>
-          <label>
-            Contraseña (mínimo 8)
-            <input type="password" minLength={8} value={form.password} onChange={set("password")} placeholder="Mínimo 8 caracteres" required />
-          </label>
-          {error && <p className="msg msg--error">⚠️ {error}</p>}
-          <button className="btn btn--primary w-full" type="submit" disabled={loading}>
-            {loading ? "Creando cuenta…" : "Registrarme"}
-          </button>
-        </form>
-        <p className="muted text-center" style={{ marginTop: "var(--space-md)" }}>
-          ¿Ya tenés cuenta? <Link to="/login">Ingresá</Link>
-        </p>
+    <div className="page-enter auth-page">
+      <div className="auth-card">
+        <div className="card">
+          <h1>Crear cuenta</h1>
+          <p className="auth-card__subtitle">Registrate para empezar a reservar</p>
+          <form onSubmit={submit} className="form">
+            <label>
+              Nombre completo
+              <input value={form.fullName} onChange={set("fullName")} placeholder="Tu nombre" required autoFocus />
+            </label>
+            <label>
+              Email
+              <input type="email" value={form.email} onChange={set("email")} placeholder="tu@email.com" required />
+            </label>
+            <label>
+              Teléfono
+              <input value={form.phone} onChange={set("phone")} placeholder="Ej: 11-2345-6789" required />
+            </label>
+            <label>
+              Contraseña (mínimo 8)
+              <input type="password" minLength={8} value={form.password} onChange={set("password")} placeholder="Mínimo 8 caracteres" required />
+            </label>
+            {error && <p className="msg msg--error">⚠️ {error}</p>}
+            <button className="btn btn--primary w-full" type="submit" disabled={loading}>
+              {loading ? "Creando cuenta…" : "Registrarme"}
+            </button>
+          </form>
+          <div className="auth-divider">o</div>
+          <p className="muted text-center">
+            ¿Ya tenés cuenta? <Link to="/login">Ingresá</Link>
+          </p>
+        </div>
       </div>
     </div>
   );

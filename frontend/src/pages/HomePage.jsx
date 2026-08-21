@@ -19,15 +19,19 @@ export default function HomePage() {
     <div className="page-enter">
       {/* Hero */}
       <div className="hero">
-        <h1>🏟️ Reservá tu cancha online</h1>
+        <div className="hero__badge">⚡ Disponibilidad en tiempo real</div>
+        <h1>Reservá tu cancha online</h1>
         <p>
-          Encontrá disponibilidad en tiempo real, pagá la seña con Mercado Pago
+          Encontrá disponibilidad al instante, pagá la seña con Mercado Pago
           y asegurá tu turno en segundos.
         </p>
       </div>
 
       {/* Complejos */}
-      <h2 style={{ marginBottom: "var(--space-md)" }}>Complejos deportivos</h2>
+      <div className="section-heading">
+        <div className="section-heading__icon">🏟️</div>
+        <h2>Complejos deportivos</h2>
+      </div>
 
       {loading ? (
         <div className="cards">
@@ -49,11 +53,11 @@ export default function HomePage() {
         <div className="cards">
           {complexes.map((c) => (
             <Link to={`/complejo/${c.id}`} className="card card--link" key={c.id}>
-              <h2>{c.name}</h2>
-              <p className="muted" style={{ marginBottom: "var(--space-sm)" }}>
+              <h2 style={{ marginBottom: "var(--space-xs)" }}>{c.name}</h2>
+              <p className="muted" style={{ marginBottom: 0 }}>
                 📍 {c.address}
               </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm)", fontSize: "0.85rem" }}>
+              <div className="complex-card__footer">
                 <span>🕒 {c.openTime} a {c.closeTime}</span>
                 <span>⏱️ {c.slotDurationMinutes} min</span>
               </div>
