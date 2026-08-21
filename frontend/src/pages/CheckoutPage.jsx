@@ -1,70 +1,155 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api/client";
+import { mockGetBooking, mockCheckout } from "../api/mockData";
+import CountdownTimer from "../components/CountdownTimer";
+import { useToast } from "../components/Toast";
 
 export default function CheckoutPage() {
   const { bookingId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const toast = useToast();
   const [booking, setBooking] = useState(location.state || null);
-  const [segundos, setSegundos] = useState(null);
   const [error, setError] = useState("");
   const [pagando, setPagando] = useState(false);
+  const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     if (!booking) {
-      api(`/bookings/${bookingId}`).then(setBooking).catch(() => navigate("/"));
+      mockGetBooking(bookingId)
+        .then(setBooking)
+        .catch(() => {
+          toast?.error("No se encontró la reserva");
+          navigate("/");
+        });
     }
   }, [bookingId]);
 
-  useEffect(() => {
-    if (!booking?.expiraEn) return;
-    setSegundos(Math.max(0, Math.floor((new Date(booking.expiraEn) - Date.now()) / 1000)));
-    const t = setInterval(() => setSegundos((s) => (s !== null ? s - 1 : s)), 1000);
-    return () => clearInterval(t);
-  }, [booking?.expiraEn]);
-
-  useEffect(() => {
-    if (segundos !== null && segundos <= 0) {
-      setError("El tiempo de retención expiró. El turno vuelve a estar disponible.");
-    }
-  }, [segundos]);
+  function handleExpired() {
+    setExpired(true);
+    setError("El tiempo de retención expiró. El turno vuelve a estar disponible.");
+    toast?.error("⏰ Tiempo expirado. El turno fue liberado.");
+  }
 
   async function pagar() {
     setPagando(true);
     setError("");
     try {
-      const res = await api("/payments/checkout", {
-        method: "POST",
-        body: { bookingId: Number(bookingId) }
-      });
-      window.location.href = res.initPoint;
+      const res = await mockCheckout(Number(bookingId));
+      toast?.success("Redirigiendo a Mercado Pago…");
+      // Simula redirección (en prod sería window.location.href = res.initPoint)
+      setTimeout(() => {
+        navigate(`/reserva/exito?bookingId=${bookingId}`);
+      }, 800);
     } catch (e) {
       setError(e.message);
+      toast?.error(e.message);
       setPagando(false);
     }
   }
 
-  if (!booking) return <p className="muted">Cargando…</p>;
-
-  const mm = segundos === null ? "--" : String(Math.floor(Math.max(0, segundos) / 60)).padStart(2, "0");
-  const ss = segundos === null ? "--" : String(Math.max(0, segundos) % 60).padStart(2, "0");
+  if (!booking) {
+    return (
+      <div className="page-enter">
+        <div className="card" style={{ maxWidth: 500, margin: "0 auto" }}>
+          <div className="skeleton skeleton--title" />
+          <div className="skeleton skeleton--text" />
+          <div className="skeleton skeleton--text" style={{ width: "60%" }} />
+          <div className="skeleton skeleton--card" style={{ marginTop: "var(--space-md)" }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="card">
-      <h1>Confirmá tu reserva</h1>
-      <p>{booking.complejo} · {booking.cancha}</p>
-      <p>{new Date(booking.inicio).toLocaleString("es-AR")}</p>
-      <div className="resumen">
-        <p>Seña online: <strong>${booking.sena}</strong></p>
-        <p>Saldo en mostrador: <strong>${booking.saldoMostrador}</strong></p>
+    <div className="page-enter" style={{ maxWidth: 500, margin: "0 auto" }}>
+      <div className="card">
+        <h1 style={{ textAlign: "center", marginBottom: "var(--space-md)" }}>
+          Confirmá tu reserva
+        </h1>
+
+        {/* Info del turno */}
+        <div className="resumen" style={{ marginBottom: "var(--space-md)" }}>
+          <p><strong>{booking.complejo}</strong></p>
+          <p className="muted">{booking.cancha}</p>
+          <p style={{ marginTop: "var(--space-sm)" }}>
+            📅 {new Date(booking.inicio).toLocaleDateString("es-AR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+          <p>
+            🕒 {new Date(booking.inicio).toLocaleTimeString("es-AR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })} hs
+          </p>
+        </div>
+
+        {/* Desglose de precios */}
+        <div className="resumen" style={{ marginBottom: "var(--space-md)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--space-xs)" }}>
+            <span>Seña online</span>
+            <strong style={{ color: "var(--accent)", fontSize: "1.1rem" }}>
+              ${booking.sena?.toLocaleString("es-AR")}
+            </strong>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span className="muted">Saldo en mostrador</span>
+            <span className="muted">${booking.saldoMostrador?.toLocaleString("es-AR")}</span>
+          </div>
+          <div style={{
+            borderTop: "1px solid var(--border-color)",
+            marginTop: "var(--space-sm)",
+            paddingTop: "var(--space-sm)",
+            display: "flex",
+            justifyContent: "space-between",
+            fontWeight: 700,
+          }}>
+            <span>Total</span>
+            <span>${((booking.sena || 0) + (booking.saldoMostrador || 0)).toLocaleString("es-AR")}</span>
+          </div>
+        </div>
+
+        {/* Timer */}
+        <CountdownTimer
+          expiresAt={booking.expiraEn}
+          onExpired={handleExpired}
+        />
+
+        {/* Error */}
+        {error && (
+          <p className="msg msg--error" style={{ marginBottom: "var(--space-md)" }}>
+            ⚠️ {error}
+          </p>
+        )}
+
+        {/* Botón de pago */}
+        <button
+          className="btn btn--primary w-full"
+          onClick={pagar}
+          disabled={pagando || expired}
+          style={{ padding: "14px 24px", fontSize: "1rem" }}
+        >
+          {pagando ? "⏳ Redirigiendo a Mercado Pago…" : "💳 Pagar seña con Mercado Pago"}
+        </button>
+
+        {expired && (
+          <button
+            className="btn btn--outline w-full mt-md"
+            onClick={() => navigate(-1)}
+          >
+            ← Volver a la grilla
+          </button>
+        )}
+
+        <p className="muted text-center" style={{ marginTop: "var(--space-md)", fontSize: "0.75rem" }}>
+          Serás redirigido a la plataforma de Mercado Pago para completar el pago de la seña.
+          El saldo restante se abona en el mostrador del complejo.
+        </p>
       </div>
-      <p className="timer" role="timer">⏱️ Turno retenido: {mm}:{ss}</p>
-      {error && <p className="msg msg--error">{error}</p>}
-      <button className="btn btn--primary" onClick={pagar}
-        disabled={pagando || (segundos !== null && segundos <= 0)}>
-        {pagando ? "Redirigiendo…" : "Pagar seña con Mercado Pago"}
-      </button>
     </div>
   );
 }

@@ -1,86 +1,199 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, session } from "../api/client";
-
-const DEPORTES = {
-  FUTBOL_5: "Fútbol 5", FUTBOL_7: "Fútbol 7", FUTBOL_11: "Fútbol 11",
-  PADEL: "Pádel", TENIS: "Tenis", BASQUET: "Básquet"
-};
-const ESTADO_CLASE = {
-  DISPONIBLE: "slot--disponible",
-  EN_PROCESO_PAGO: "slot--proceso",
-  CONFIRMADO: "slot--ocupado",
-  BLOQUEADO: "slot--bloqueado"
-};
-const ESTADO_LABEL = {
-  DISPONIBLE: "Disponible", EN_PROCESO_PAGO: "Retenido",
-  CONFIRMADO: "Ocupado", BLOQUEADO: "Bloqueado"
-};
+import { session } from "../api/client";
+import {
+  mockGetComplex,
+  mockGetGrid,
+  mockInitiateBooking,
+  DEPORTES,
+  ESTADO_SLOT,
+} from "../api/mockData";
+import SlotGrid from "../components/SlotGrid";
+import DateNav from "../components/DateNav";
+import SportFilter from "../components/SportFilter";
+import ConfirmModal from "../components/ConfirmModal";
+import { useToast } from "../components/Toast";
 
 const hoy = () => new Date().toLocaleDateString("en-CA");
 
 export default function ComplexPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+
+  const [complejo, setComplejo] = useState(null);
   const [fecha, setFecha] = useState(hoy());
   const [grilla, setGrilla] = useState([]);
-  const [complejo, setComplejo] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [sportFilter, setSportFilter] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedCourt, setSelectedCourt] = useState(null);
+  const [reservando, setReservando] = useState(false);
 
+  // Cargar info del complejo
   useEffect(() => {
-    api(`/complexes/${id}`, { auth: false }).then(setComplejo).catch(console.error);
+    mockGetComplex(id)
+      .then(setComplejo)
+      .catch((e) => setError(e.message));
   }, [id]);
 
+  // Cargar grilla
   useEffect(() => {
-    api(`/complexes/${id}/grid?date=${fecha}`, { auth: false })
-      .then(setGrilla)
-      .catch((e) => setError(e.message));
+    setLoading(true);
+    setError("");
+    mockGetGrid(id, fecha)
+      .then((data) => {
+        setGrilla(data);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e.message);
+        setLoading(false);
+      });
   }, [id, fecha]);
 
-  async function reservar(slotId) {
+  // Deportes únicos para filtros
+  const uniqueSports = useMemo(() => {
+    const set = new Set(grilla.map((c) => c.deporte));
+    return [...set];
+  }, [grilla]);
+
+  // Grilla filtrada
+  const filteredGrid = useMemo(() => {
+    if (!sportFilter) return grilla;
+    return grilla.filter((c) => c.deporte === sportFilter);
+  }, [grilla, sportFilter]);
+
+  function handleSlotClick(slot, court) {
     if (!session.token()) {
+      toast?.info("Ingresá para reservar tu turno");
       navigate("/login", { state: { next: `/complejo/${id}` } });
       return;
     }
+    setSelectedSlot(slot);
+    setSelectedCourt(court);
+  }
+
+  async function handleReservar() {
+    if (!selectedSlot) return;
+    setReservando(true);
     setError("");
     try {
-      const data = await api("/bookings/initiate", { method: "POST", body: { slotId } });
+      const data = await mockInitiateBooking(selectedSlot.id);
+      setSelectedSlot(null);
+      setSelectedCourt(null);
+      toast?.success("Turno retenido. Tenés 15 minutos para pagar.");
       navigate(`/checkout/${data.bookingId}`, { state: data });
     } catch (e) {
       setError(e.message);
+      toast?.error(e.message);
+      setReservando(false);
     }
   }
 
+  function closeModal() {
+    setSelectedSlot(null);
+    setSelectedCourt(null);
+    setReservando(false);
+  }
+
+  const deporteInfo = selectedCourt
+    ? DEPORTES[selectedCourt.deporte] || { label: selectedCourt.deporte, icon: "🏟️" }
+    : null;
+
   return (
-    <div>
+    <div className="page-enter">
+      {/* Hero del complejo */}
       {complejo && (
-        <>
+        <div className="complex-hero">
           <h1>{complejo.name}</h1>
-          <p className="muted">{complejo.address} · 🕒 {complejo.openTime} a {complejo.closeTime}</p>
-        </>
-      )}
-      <label className="fecha">Fecha:{" "}
-        <input type="date" value={fecha} min={hoy()} onChange={(e) => setFecha(e.target.value)} />
-      </label>
-      {error && <p className="msg msg--error">{error}</p>}
-      {grilla.map((cancha) => (
-        <section className="card" key={cancha.id}>
-          <h2>{cancha.nombre}</h2>
-          <p className="muted">
-            {DEPORTES[cancha.deporte] || cancha.deporte} · ${cancha.precio} · Seña {cancha.porcentajeSena}%
-            {cancha.techada ? " · Techada" : ""}
-          </p>
-          <div className="slots">
-            {cancha.slots.map((s) => (
-              <button key={s.id} className={`slot ${ESTADO_CLASE[s.estado]}`}
-                disabled={s.estado !== "DISPONIBLE"} onClick={() => reservar(s.id)}>
-                <strong>{new Date(s.inicio).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</strong>
-                <small>{ESTADO_LABEL[s.estado]}</small>
-              </button>
-            ))}
+          <div className="complex-hero__meta">
+            <span>📍 {complejo.address}</span>
+            <span>🕒 {complejo.openTime} a {complejo.closeTime}</span>
+            <span>⏱️ Turnos de {complejo.slotDurationMinutes} min</span>
+            {complejo.phone && <span>📞 {complejo.phone}</span>}
           </div>
-        </section>
-      ))}
+        </div>
+      )}
+
+      {/* Navegación de fecha */}
+      <DateNav value={fecha} onChange={setFecha} minDate={hoy()} />
+
+      {/* Filtros de deporte */}
+      <SportFilter
+        sports={uniqueSports}
+        active={sportFilter}
+        onChange={setSportFilter}
+      />
+
+      {/* Error */}
+      {error && <p className="msg msg--error">⚠️ {error}</p>}
+
+      {/* Grilla de slots */}
+      <SlotGrid
+        grid={filteredGrid}
+        onSlotClick={handleSlotClick}
+        loading={loading}
+      />
+
+      {/* Modal de confirmación */}
+      <ConfirmModal
+        open={!!selectedSlot}
+        onClose={closeModal}
+        title="Confirmar turno"
+        actions={
+          <>
+            <button className="btn btn--outline" onClick={closeModal}>
+              Cancelar
+            </button>
+            <button
+              className="btn btn--primary"
+              onClick={handleReservar}
+              disabled={reservando}
+            >
+              {reservando ? "Reteniendo…" : "🔒 Reservar turno"}
+            </button>
+          </>
+        }
+      >
+        {selectedCourt && selectedSlot && (
+          <div>
+            <div className="resumen" style={{ marginBottom: "var(--space-md)" }}>
+              <p><strong>{selectedCourt.nombre}</strong></p>
+              <p className="muted">
+                {deporteInfo?.icon} {deporteInfo?.label}
+                {selectedCourt.techada ? " · Techada" : ""}
+              </p>
+              <p style={{ marginTop: "var(--space-sm)" }}>
+                📅 {new Date(fecha + "T12:00:00").toLocaleDateString("es-AR", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+              </p>
+              <p>
+                🕒 {selectedSlot.inicio.split("T")[1]?.substring(0, 5)} hs
+              </p>
+            </div>
+            <div className="resumen">
+              <p>Precio total: <strong>${selectedCourt.precio?.toLocaleString("es-AR")}</strong></p>
+              <p>
+                Seña online ({selectedCourt.porcentajeSena}%):{" "}
+                <strong style={{ color: "var(--accent)" }}>
+                  ${Math.round(selectedCourt.precio * selectedCourt.porcentajeSena / 100).toLocaleString("es-AR")}
+                </strong>
+              </p>
+              <p className="muted" style={{ fontSize: "0.8rem", marginTop: "var(--space-xs)" }}>
+                Saldo de ${(selectedCourt.precio - Math.round(selectedCourt.precio * selectedCourt.porcentajeSena / 100)).toLocaleString("es-AR")} se abona en el mostrador
+              </p>
+            </div>
+            <p className="muted" style={{ fontSize: "0.78rem", marginTop: "var(--space-md)" }}>
+              🔒 Al reservar, el turno se retiene 15 minutos para completar el pago vía Mercado Pago.
+            </p>
+          </div>
+        )}
+      </ConfirmModal>
     </div>
   );
 }

@@ -1,55 +1,143 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
-
-const LABEL = {
-  PENDIENTE_PAGO: "Pendiente de pago", CONFIRMADA: "Confirmada",
-  CANCELADA_REEMBOLSADA: "Cancelada (seña reembolsada)",
-  CANCELADA_RETENIDA: "Cancelada (seña retenida)",
-  EXPIRADA: "Expirada", COMPLETADA: "Completada"
-};
+import { mockGetMyBookings, mockCancelBooking, ESTADO_BOOKING } from "../api/mockData";
+import ConfirmModal from "../components/ConfirmModal";
+import { useToast } from "../components/Toast";
 
 export default function MyBookingsPage() {
+  const toast = useToast();
   const [reservas, setReservas] = useState([]);
-  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [cancelId, setCancelId] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
-    api("/bookings/mis-reservas").then(setReservas).catch(console.error);
+    mockGetMyBookings()
+      .then((data) => {
+        setReservas(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
-  async function cancelar(id) {
-    const ok = confirm(
-      "Si faltan más de 2 horas para el turno, la seña se reembolsa automáticamente. " +
-      "Si faltan 2 horas o menos, la seña queda para el complejo. ¿Continuar?"
-    );
-    if (!ok) return;
-    setMsg("");
+  async function handleCancel() {
+    if (!cancelId) return;
+    setCancelling(true);
     try {
-      const res = await api(`/bookings/${id}/cancel`, { method: "POST" });
-      setMsg(res.resultado === "CANCELADA_REEMBOLSADA"
+      const res = await mockCancelBooking(cancelId);
+      const msg = res.resultado === "CANCELADA_REEMBOLSADA"
         ? "Reserva cancelada. La seña será reembolsada por Mercado Pago."
-        : "Reserva cancelada. La seña quedó retenida por el complejo (margen ≤ 2 hs).");
-      api("/bookings/mis-reservas").then(setReservas);
+        : "Reserva cancelada. La seña quedó retenida por el complejo (margen ≤ 2 hs).";
+      toast?.success(msg);
+      setCancelId(null);
+      // Refresh
+      const updated = await mockGetMyBookings();
+      setReservas(updated);
     } catch (e) {
-      setMsg("Error: " + e.message);
+      toast?.error("Error: " + e.message);
     }
+    setCancelling(false);
+  }
+
+  if (loading) {
+    return (
+      <div className="page-enter">
+        <div className="skeleton skeleton--title" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="card" style={{ marginBottom: "var(--space-md)" }}>
+            <div className="skeleton skeleton--title" style={{ width: "70%" }} />
+            <div className="skeleton skeleton--text" />
+            <div className="skeleton skeleton--text" style={{ width: "50%" }} />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <h1>Mis reservas</h1>
-      {msg && <p className="msg msg--ok">{msg}</p>}
-      {reservas.map((r) => (
-        <div className="card" key={r.id}>
-          <h2>{r.complejo} · {r.cancha}</h2>
-          <p>{new Date(r.inicio).toLocaleString("es-AR")}</p>
-          <p>Seña: ${r.sena} · Saldo en mostrador: ${r.saldoMostrador}</p>
-          <p className={"estado estado--" + r.estado}>{LABEL[r.estado] || r.estado}</p>
-          {r.estado === "CONFIRMADA" && (
-            <button className="btn btn--danger" onClick={() => cancelar(r.id)}>Cancelar reserva</button>
-          )}
+
+      {reservas.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state__icon">📋</div>
+          <p className="empty-state__title">Todavía no tenés reservas</p>
+          <p className="muted">Explorá los complejos y reservá tu primer turno.</p>
         </div>
-      ))}
-      {reservas.length === 0 && <p className="muted">Todavía no tenés reservas.</p>}
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)", marginTop: "var(--space-md)" }}>
+          {reservas.map((r) => {
+            const estadoConfig = ESTADO_BOOKING[r.estado] || { label: r.estado, badge: "badge--disponible" };
+            const fecha = new Date(r.inicio);
+            const isFuture = fecha > new Date();
+
+            return (
+              <div className="card" key={r.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "var(--space-sm)" }}>
+                  <div>
+                    <h2 style={{ marginBottom: "var(--space-xs)" }}>{r.complejo}</h2>
+                    <p className="muted" style={{ marginBottom: "var(--space-xs)" }}>{r.cancha}</p>
+                  </div>
+                  <span className={`badge ${estadoConfig.badge}`}>
+                    {estadoConfig.label}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-sm) var(--space-md)", marginTop: "var(--space-sm)", fontSize: "0.88rem" }}>
+                  <span>📅 {fecha.toLocaleDateString("es-AR", { weekday: "short", day: "numeric", month: "short" })}</span>
+                  <span>🕒 {fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} hs</span>
+                </div>
+
+                <div className="resumen" style={{ marginTop: "var(--space-sm)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="muted">Seña</span>
+                    <strong>${r.sena?.toLocaleString("es-AR")}</strong>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="muted">Saldo mostrador</span>
+                    <span>${r.saldoMostrador?.toLocaleString("es-AR")}</span>
+                  </div>
+                </div>
+
+                {r.estado === "CONFIRMADA" && isFuture && (
+                  <button
+                    className="btn btn--danger btn--small mt-md"
+                    onClick={() => setCancelId(r.id)}
+                  >
+                    Cancelar reserva
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Modal de cancelación */}
+      <ConfirmModal
+        open={!!cancelId}
+        onClose={() => setCancelId(null)}
+        title="¿Cancelar esta reserva?"
+        actions={
+          <>
+            <button className="btn btn--outline" onClick={() => setCancelId(null)}>
+              Volver
+            </button>
+            <button className="btn btn--danger" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? "Cancelando…" : "Sí, cancelar"}
+            </button>
+          </>
+        }
+      >
+        <div>
+          <p style={{ marginBottom: "var(--space-sm)" }}>
+            ⚠️ <strong>Política de cancelación:</strong>
+          </p>
+          <ul style={{ paddingLeft: "var(--space-lg)", fontSize: "0.88rem", color: "var(--text-secondary)" }}>
+            <li>Si faltan <strong>más de 2 horas</strong> para el turno → la seña se reembolsa automáticamente.</li>
+            <li>Si faltan <strong>2 horas o menos</strong> → la seña queda para el complejo.</li>
+          </ul>
+        </div>
+      </ConfirmModal>
     </div>
   );
 }
