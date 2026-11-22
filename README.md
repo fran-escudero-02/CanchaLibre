@@ -1,6 +1,21 @@
-# CanchaLibre (MVP)
+# CanchaLibre
 
-Plataforma de reserva de turnos deportivos con cobro de seña online (Mercado Pago).
+MVP de reservas de canchas deportivas con pago de seña en línea. El flujo principal permite consultar horarios, retener un turno mientras se realiza el pago y confirmar la reserva.
+
+## Qué podés probar
+
+- Reservar un turno como jugador y probar el flujo de pago en modo simulación.
+- Acceder al panel del complejo o al panel de administración general con los perfiles de prueba.
+- Ver en las pruebas de integración cómo responde la API cuando dos solicitudes intentan reservar el mismo turno.
+
+## Tecnologías
+
+| Componente | Tecnologías |
+| --- | --- |
+| [Backend](backend/) | Java 21, Spring Boot 3.3, Spring Data JPA, Spring Security y JWT |
+| Datos | PostgreSQL y migraciones con Flyway |
+| [Frontend](frontend/) | React 18 y Vite |
+| Integraciones | Mercado Pago API, notificaciones por webhook y OpenAPI |
 
 ## Ejecutar con Docker
     docker compose up --build
